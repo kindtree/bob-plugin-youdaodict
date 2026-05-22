@@ -114,6 +114,67 @@ test("buildDictResult: 默认含柯林斯英释 + 例句", () => {
   assert.ok(d.additions.some(a => a.name === "例句"));
 });
 
+test("cleanInput: 去首尾标点/引号/空白，保留词内连字符", () => {
+  assert.equal(mod.cleanInput("good."), "good");
+  assert.equal(mod.cleanInput("“good”"), "good");
+  assert.equal(mod.cleanInput("  good,  "), "good");
+  assert.equal(mod.cleanInput("(well-being)"), "well-being");
+  assert.equal(mod.cleanInput("good"), "good");
+});
+
+test("cleanInput + isSingleWord: 带标点的划词能识别为单词", () => {
+  assert.equal(mod.isSingleWord(mod.cleanInput("good.")), true);
+  assert.equal(mod.isSingleWord(mod.cleanInput("“good”")), true);
+});
+
+test("buildSynonyms: 按词性合并近义词", () => {
+  const syn = mod.buildSynonyms(good, 2);
+  assert.ok(syn.length >= 1);
+  assert.match(syn[0].name, /^近义/);
+  assert.ok(syn[0].value.length > 0);
+});
+
+test("buildSynonyms: 无 syno 返回空", () => {
+  assert.deepEqual(mod.buildSynonyms({}, 2), []);
+});
+
+test("buildPhrases: 取词组 + 中文", () => {
+  const ph = mod.buildPhrases(good, 2);
+  assert.ok(ph.length >= 1);
+  assert.equal(ph[0].name, "词组");
+  assert.match(ph[0].value, /[a-zA-Z]/);
+  assert.match(ph[0].value, /[一-龥]/);
+});
+
+test("buildPhrases: 无 phrs 返回空", () => {
+  assert.deepEqual(mod.buildPhrases({}, 2), []);
+});
+
+test("buildStar: 柯林斯星级转 ★", () => {
+  const s = mod.buildStar(good);
+  assert.equal(s.name, "词频");
+  assert.ok(/^★+$/.test(s.value));
+});
+
+test("buildStar: 无星返回 null", () => {
+  assert.equal(mod.buildStar({}), null);
+  assert.equal(mod.buildStar({ collins: { collins_entries: [{ star: 0 }] } }), null);
+});
+
+test("cacheKey: 归一化为小写安全键", () => {
+  assert.equal(mod.cacheKey("Good"), "good");
+  assert.equal(mod.cacheKey("well-being"), "well-being");
+  assert.equal(mod.cacheKey("a/b c"), "a_b_c");
+});
+
+test("isFresh: TTL 内为真，超时为假", () => {
+  const now = 1000000;
+  assert.equal(mod.isFresh({ ts: now - 100 }, now, 1000), true);
+  assert.equal(mod.isFresh({ ts: now - 2000 }, now, 1000), false);
+  assert.equal(mod.isFresh(null, now, 1000), false);
+  assert.equal(mod.isFresh({}, now, 1000), false);
+});
+
 test("buildDictResult: 命中词典返回完整 toDict", () => {
   const d = mod.buildDictResult(good, "good");
   assert.equal(d.word, "good");

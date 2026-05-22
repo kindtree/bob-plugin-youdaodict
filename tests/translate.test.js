@@ -53,6 +53,56 @@ test("translate: 返回字符串 JSON 也能解析", () => {
   assert.ok(out.result.toDict);
 });
 
+test("translate: 带标点 'good.' 经净化仍走词典", () => {
+  delete global.$file;
+  global.$http = { get: ({ handler }) => handler({ data: good }) };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "good.", onCompletion: (p) => { out = p; } });
+  assert.ok(out.result.toDict);
+  assert.equal(out.result.toDict.word, "good");
+});
+
+test("translate: 缓存命中则不发网络请求", () => {
+  let netCalled = false;
+  global.$http = { get: () => { netCalled = true; } };
+  const entry = JSON.stringify({ ts: Date.now(), data: good });
+  global.$file = { exists: () => true, read: () => ({ toUTF8: () => entry }) };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "good", onCompletion: (p) => { out = p; } });
+  assert.equal(netCalled, false, "命中缓存不应发网络");
+  assert.ok(out.result.toDict);
+  delete global.$file;
+});
+
+test("translate: 缓存读异常时回退联网，不崩", () => {
+  let netCalled = false;
+  global.$http = { get: ({ handler }) => { netCalled = true; handler({ data: good }); } };
+  global.$file = { exists: () => { throw new Error("boom"); } };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "good", onCompletion: (p) => { out = p; } });
+  assert.equal(netCalled, true);
+  assert.ok(out.result.toDict);
+  delete global.$file;
+});
+
+test("translate: 4xx 时重试一次", () => {
+  let calls = 0;
+  delete global.$file;
+  global.$http = { get: ({ handler }) => {
+    calls++;
+    if (calls === 1) handler({ response: { statusCode: 412 } });
+    else handler({ data: good });
+  }};
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "good", onCompletion: (p) => { out = p; } });
+  assert.equal(calls, 2, "首次 412 应重试一次");
+  assert.ok(out.result.toDict);
+});
+
 test("supportLanguages / pluginTimeoutInterval", () => {
   const mod = loadFresh();
   assert.ok(mod.supportLanguages().includes("en"));

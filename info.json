@@ -1,12 +1,13 @@
 {
   "identifier": "com.alex.bob.youdaodict",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "category": "translate",
   "name": "有道词典(单词)",
-  "summary": "查询单个英文单词：释义、双语例句、英/美发音、柯林斯英释",
+  "summary": "单词释义/英美发音/双语例句/柯林斯英释/近义词/词组，带缓存",
   "icon": "001",
   "author": "Alex",
   "minBobVersion": "1.8.0",
+  "appcast": "https://raw.githubusercontent.com/USERNAME/bob-plugin-youdaodict/main/appcast.json",
   "options": [
     {
       "identifier": "accent",

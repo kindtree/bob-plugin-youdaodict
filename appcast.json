@@ -1,0 +1,12 @@
+{
+  "identifier": "com.alex.bob.youdaodict",
+  "versions": [
+    {
+      "version": "1.2.0",
+      "desc": "新增缓存、网络重试、输入净化、柯林斯英释、近义词、常用词组、词频星级；口音/例句数可配。",
+      "sha256": "125a64dac64be6025222c90f1750facf263272c149754e80d45dfe7285a2bacf",
+      "url": "https://github.com/USERNAME/bob-plugin-youdaodict/releases/download/v1.2.0/youdaodict.bobplugin",
+      "minBobVersion": "1.8.0"
+    }
+  ]
+}
