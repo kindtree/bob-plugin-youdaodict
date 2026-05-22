@@ -7,7 +7,7 @@
   "icon": "001",
   "author": "Alex",
   "minBobVersion": "1.8.0",
-  "appcast": "https://raw.githubusercontent.com/USERNAME/bob-plugin-youdaodict/main/appcast.json",
+  "appcast": "https://raw.githubusercontent.com/kindtree/bob-plugin-youdaodict/main/appcast.json",
   "options": [
     {
       "identifier": "accent",
