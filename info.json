@@ -1,0 +1,11 @@
+{
+  "identifier": "com.alex.bob.youdaodict",
+  "version": "1.0.0",
+  "category": "translate",
+  "name": "有道词典(单词)",
+  "summary": "查询单个英文单词：释义、双语例句、英/美发音",
+  "icon": "001",
+  "author": "Alex",
+  "minBobVersion": "1.8.0",
+  "options": []
+}
