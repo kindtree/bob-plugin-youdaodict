@@ -1,11 +1,43 @@
 {
   "identifier": "com.alex.bob.youdaodict",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "category": "translate",
   "name": "有道词典(单词)",
-  "summary": "查询单个英文单词：释义、双语例句、英/美发音",
+  "summary": "查询单个英文单词：释义、双语例句、英/美发音、柯林斯英释",
   "icon": "001",
   "author": "Alex",
   "minBobVersion": "1.8.0",
-  "options": []
+  "options": [
+    {
+      "identifier": "accent",
+      "type": "menu",
+      "title": "发音口音优先",
+      "defaultValue": "us",
+      "menuValues": [
+        { "title": "美式优先", "value": "us" },
+        { "title": "英式优先", "value": "uk" }
+      ]
+    },
+    {
+      "identifier": "exampleCount",
+      "type": "menu",
+      "title": "例句数量",
+      "defaultValue": "2",
+      "menuValues": [
+        { "title": "1 条", "value": "1" },
+        { "title": "2 条", "value": "2" },
+        { "title": "3 条", "value": "3" }
+      ]
+    },
+    {
+      "identifier": "showCollins",
+      "type": "menu",
+      "title": "柯林斯英文释义",
+      "defaultValue": "on",
+      "menuValues": [
+        { "title": "显示", "value": "on" },
+        { "title": "隐藏", "value": "off" }
+      ]
+    }
+  ]
 }

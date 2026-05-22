@@ -58,16 +58,60 @@ test("buildExchanges: 无 wfs 返回空数组", () => {
   assert.deepEqual(mod.buildExchanges({}), []);
 });
 
-test("buildExamples: 取前 N 条双语例句", () => {
-  const adds = mod.buildExamples(good, 2);
-  assert.equal(adds.length, 2);
-  assert.equal(adds[0].name, "例句");
-  assert.match(adds[0].value, /good/i);
-  assert.match(adds[0].value, /[一-龥]/);
+test("stripHtml: 去标签压空白", () => {
+  assert.equal(mod.stripHtml("<b>Good</b>  means   nice."), "Good means nice.");
+  assert.equal(mod.stripHtml(undefined), "");
 });
 
-test("buildExamples: 无例句返回空数组", () => {
-  assert.deepEqual(mod.buildExamples({}, 2), []);
+test("collinsSents: 抽出双语例句", () => {
+  const s = mod.collinsSents(good);
+  assert.ok(s.length > 0);
+  assert.ok(s[0].eng && s[0].chn);
+  assert.ok(!/[<>]/.test(s[0].eng), "不应残留 HTML 标签");
+});
+
+test("buildCollinsDefs: 英文释义带词性、去标签", () => {
+  const defs = mod.buildCollinsDefs(good, 2);
+  assert.equal(defs.length, 2);
+  assert.match(defs[0].name, /^英释/);
+  assert.ok(!/[<>]/.test(defs[0].value));
+});
+
+test("buildCollinsDefs: 无 collins 返回空", () => {
+  assert.deepEqual(mod.buildCollinsDefs({}, 2), []);
+});
+
+test("buildExampleAdditions: 取前 N 条、双语、按短优先、去重", () => {
+  const adds = mod.buildExampleAdditions(good, 2);
+  assert.equal(adds.length, 2);
+  assert.equal(adds[0].name, "例句");
+  assert.match(adds[0].value, /[a-zA-Z]/);
+  assert.match(adds[0].value, /[一-龥]/);
+  // 短优先：第一条不长于第二条
+  assert.ok(adds[0].value.length <= adds[1].value.length);
+});
+
+test("buildExampleAdditions: 无例句返回空数组", () => {
+  assert.deepEqual(mod.buildExampleAdditions({}, 2), []);
+});
+
+test("orderByAccent: uk 优先把英音排前", () => {
+  const ps = mod.buildPhonetics("good", good.ec.word[0]);
+  assert.equal(mod.orderByAccent(ps, "uk")[0].type, "uk");
+  assert.equal(mod.orderByAccent(ps, "us")[0].type, "us");
+});
+
+test("buildDictResult: opts 控制例句数 / 关闭柯林斯 / 口音", () => {
+  const d = mod.buildDictResult(good, "good", { exampleCount: 1, showCollins: false, accent: "uk" });
+  assert.equal(d.phonetics[0].type, "uk");
+  assert.equal(d.additions.filter(a => a.name === "例句").length, 1);
+  assert.equal(d.additions.filter(a => /^英释/.test(a.name)).length, 0, "关闭柯林斯后无英释");
+});
+
+test("buildDictResult: 默认含柯林斯英释 + 例句", () => {
+  const d = mod.buildDictResult(good, "good");
+  assert.ok(d.additions.some(a => /^英释/.test(a.name)));
+  assert.ok(d.additions.some(a => a.name === "例句"));
 });
 
 test("buildDictResult: 命中词典返回完整 toDict", () => {

@@ -62,17 +62,67 @@ function buildExchanges(ecWord) {
     .map(function (wf) { return { name: wf.name, words: [wf.value] }; });
 }
 
-// 双语例句 -> additions
-function buildExamples(data, max) {
+// 去掉有道释义里的 <b> 等 HTML 标签并压空白
+function stripHtml(s) {
+  return (s || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+}
+
+// 柯林斯例句（简洁、双语）。结构：collins_entries[].entries.entry[].tran_entry[].exam_sents.sent[]
+function collinsSents(data) {
+  var entries = (data.collins && data.collins.collins_entries) || [];
+  var out = [];
+  entries.forEach(function (ce) {
+    ((ce.entries && ce.entries.entry) || []).forEach(function (en) {
+      (en.tran_entry || []).forEach(function (te) {
+        ((te.exam_sents && te.exam_sents.sent) || []).forEach(function (s) {
+          if (s.eng_sent) out.push({ eng: stripHtml(s.eng_sent), chn: stripHtml(s.chn_sent) });
+        });
+      });
+    });
+  });
+  return out;
+}
+
+// 柯林斯英文释义 -> additions（"英释·ADJ" 之类）
+function buildCollinsDefs(data, max) {
+  var entries = (data.collins && data.collins.collins_entries) || [];
+  var out = [];
+  for (var a = 0; a < entries.length && out.length < (max || 2); a++) {
+    var ents = (entries[a].entries && entries[a].entries.entry) || [];
+    for (var b = 0; b < ents.length && out.length < (max || 2); b++) {
+      var tes = ents[b].tran_entry || [];
+      for (var c = 0; c < tes.length && out.length < (max || 2); c++) {
+        var tran = stripHtml(tes[c].tran);
+        if (!tran) continue;
+        var pos = tes[c].pos_entry && tes[c].pos_entry.pos;
+        out.push({ name: pos ? "英释·" + pos : "英释", value: tran });
+      }
+    }
+  }
+  return out;
+}
+
+// 双语例句 -> additions：合并柯林斯 + 有道，去重，偏好简短（按长度升序取前 N）
+function buildExampleAdditions(data, max) {
+  var raw = collinsSents(data);
   var pairs = (data.blng_sents_part && data.blng_sents_part["sentence-pair"]) || [];
-  return pairs.slice(0, max || 2)
-    .map(function (p) {
-      return {
-        name: "例句",
-        value: ((p.sentence || "").trim() + " " + (p["sentence-translation"] || "").trim()).trim()
-      };
-    })
-    .filter(function (a) { return a.value; });
+  pairs.forEach(function (p) {
+    if (p.sentence) raw.push({ eng: (p.sentence || "").trim(), chn: (p["sentence-translation"] || "").trim() });
+  });
+  var seen = {}, uniq = [];
+  raw.forEach(function (s) { if (s.eng && !seen[s.eng]) { seen[s.eng] = 1; uniq.push(s); } });
+  uniq.sort(function (a, b) { return a.eng.length - b.eng.length; });
+  return uniq.slice(0, max || 2).map(function (s) {
+    return { name: "例句", value: (s.eng + (s.chn ? " " + s.chn : "")).trim() };
+  });
+}
+
+// 按口音偏好排序：英式优先时把 uk 排前（phonetics[0] 是 Bob 默认朗读项）
+function orderByAccent(phonetics, accent) {
+  if (accent !== "uk") return phonetics;
+  return phonetics.slice().sort(function (a, b) {
+    return (b.type === "uk") - (a.type === "uk");
+  });
 }
 
 // 取规范词形。有道 return-phrase 可能是字符串，也可能是 {l:{i:"good"}} 或 {l:{i:["good"]}}。
@@ -85,20 +135,41 @@ function pickPhrase(rp, fallback) {
 }
 
 // 组装 toDict；查不到（无 ec.word）返回 null。
-function buildDictResult(data, word) {
+// opts: { accent: "us"|"uk", exampleCount: number, showCollins: boolean }
+function buildDictResult(data, word, opts) {
+  opts = opts || {};
+  var accent = opts.accent === "uk" ? "uk" : "us";
+  var exampleCount = opts.exampleCount || 2;
+  var showCollins = opts.showCollins !== false; // 默认显示
+
   var w = data.ec && data.ec.word;
   var ecWord = Array.isArray(w) ? w[0] : w;
   if (!ecWord) return null;
+
+  var additions = [];
+  if (showCollins) additions = additions.concat(buildCollinsDefs(data, 2));
+  additions = additions.concat(buildExampleAdditions(data, exampleCount));
+
   return {
     word: pickPhrase(ecWord["return-phrase"], word),
-    phonetics: buildPhonetics(word, ecWord),
+    phonetics: orderByAccent(buildPhonetics(word, ecWord), accent),
     parts: buildParts(ecWord),
     exchanges: buildExchanges(ecWord),
-    additions: buildExamples(data, 2)
+    additions: additions
   };
 }
 
 // ---- Bob 运行时入口 ----
+
+// 从 Bob 注入的 $option 读用户设置（menu 值是字符串）；不存在时用默认值。
+function readOptions() {
+  var o = (typeof $option !== "undefined" && $option) || {};
+  return {
+    accent: o.accent === "uk" ? "uk" : "us",
+    exampleCount: parseInt(o.exampleCount, 10) || 2,
+    showCollins: o.showCollins !== "off"
+  };
+}
 
 function translate(query, completion) {
   var finish = function (payload) {
@@ -125,7 +196,7 @@ function translate(query, completion) {
         try { data = JSON.parse(data); }
         catch (e) { finish({ error: { type: "api", message: "返回数据解析失败" } }); return; }
       }
-      var dict = buildDictResult(data, text);
+      var dict = buildDictResult(data, text, readOptions());
       if (!dict) {
         finish({ result: { toParagraphs: ["未查询到「" + text + "」的词典释义。"] } });
         return;
@@ -144,8 +215,13 @@ if (typeof module !== "undefined" && module.exports) {
     buildPhonetics: buildPhonetics,
     buildParts: buildParts,
     buildExchanges: buildExchanges,
-    buildExamples: buildExamples,
+    stripHtml: stripHtml,
+    collinsSents: collinsSents,
+    buildCollinsDefs: buildCollinsDefs,
+    buildExampleAdditions: buildExampleAdditions,
+    orderByAccent: orderByAccent,
     buildDictResult: buildDictResult,
+    readOptions: readOptions,
     translate: translate,
     supportLanguages: supportLanguages,
     pluginTimeoutInterval: pluginTimeoutInterval
