@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const good = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-good.json"), "utf8"));
 const typo = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-typo.json"), "utf8"));
+const ce = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-ce-yingxiang.json"), "utf8"));
 
 function loadFresh() {
   delete require.cache[require.resolve("../main.js")];
@@ -113,6 +114,19 @@ test("translate: 拼错词走 typo 路径，返回 toDict 含候选", () => {
   assert.ok(out.result.toDict, "应返回 toDict（而非 toParagraphs）");
   assert.match(out.result.toDict.parts[0].means[0], /要找的是不是/);
   assert.ok(out.result.toDict.additions.some(a => /serendipity/i.test(a.value)));
+});
+
+test("translate: 中文短词走 ce 路径，返回 toDict 含英文候选", () => {
+  delete global.$file;
+  global.$http = { get: ({ handler }) => handler({ data: ce }) };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "影响", onCompletion: (p) => { out = p; } });
+  assert.ok(out.result.toDict, "应返回 toDict");
+  assert.equal(out.result.toDict.word, "影响");
+  assert.ok(out.result.toDict.relatedWordParts.length >= 1);
+  const allWords = out.result.toDict.relatedWordParts.flatMap(g => g.words.map(w => w.word));
+  assert.ok(allWords.includes("influence"));
 });
 
 test("supportLanguages / pluginTimeoutInterval", () => {

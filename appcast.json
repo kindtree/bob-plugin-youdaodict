@@ -2,6 +2,13 @@
   "identifier": "com.alex.bob.youdaodict",
   "versions": [
     {
+      "version": "1.5.0",
+      "desc": "中文短词（1-4 汉字）查英文候选：按词性分组渲染可点击的英文候选词，附拼音与中文补充释义。",
+      "sha256": "cce73fba7040d894e2030db6d2b75b5c8db83cd84b479fa460ec09a04389ffa6",
+      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.5.0/youdaodict.bobplugin",
+      "minBobVersion": "1.8.0"
+    },
+    {
       "version": "1.4.0",
       "desc": "新增拼错词模糊匹配：输入打错字母的单词时给出有道候选词建议。",
       "sha256": "0dabf40fa47481edb82f2dd924d788622b19f66f2c11ae43c712792cd75db109",

@@ -7,6 +7,7 @@ const mod = require("../main.js");
 const good = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-good.json"), "utf8"));
 const notfound = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-notfound.json"), "utf8"));
 const typo = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-typo.json"), "utf8"));
+const ce = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-ce-yingxiang.json"), "utf8"));
 
 test("isSingleWord: 单词为真，含空格/中文/空串为假", () => {
   assert.equal(mod.isSingleWord("good"), true);
@@ -228,6 +229,44 @@ test("buildTypoSuggestions: 限制候选数量", () => {
 test("buildTypoSuggestions: 无 typos 返回 null", () => {
   assert.equal(mod.buildTypoSuggestions({}, "x", 5), null);
   assert.equal(mod.buildTypoSuggestions(notfound, "x", 5), null);
+});
+
+test("isShortChineseWord: 1-4 汉字为真,英文/混合/超长为假", () => {
+  assert.equal(mod.isShortChineseWord("影响"), true);
+  assert.equal(mod.isShortChineseWord("人"), true);
+  assert.equal(mod.isShortChineseWord("能力发展"), true);
+  assert.equal(mod.isShortChineseWord("good"), false);
+  assert.equal(mod.isShortChineseWord("影响 good"), false);
+  assert.equal(mod.isShortChineseWord("影响力很大的事"), false); // 7 字
+  assert.equal(mod.isShortChineseWord(""), false);
+  assert.equal(mod.isShortChineseWord(undefined), false);
+});
+
+test("buildCeDictResult: 中文输入返回候选 relatedWordParts + 拼音 additions", () => {
+  const d = mod.buildCeDictResult(ce, "影响");
+  assert.equal(d.word, "影响");
+  // phonetics 空（Bob 协议 type 限 us/uk，中文不放 phonetics）
+  assert.deepEqual(d.phonetics, []);
+  // 拼音作为 additions
+  const py = d.additions.find(a => a.name === "拼音");
+  assert.ok(py, "应有拼音 addition");
+  assert.match(py.value, /yǐng/);
+  // relatedWordParts 按词性分组
+  assert.ok(d.relatedWordParts.length >= 2);
+  const n = d.relatedWordParts.find(g => g.part === "n.");
+  const vt = d.relatedWordParts.find(g => g.part === "vt.");
+  assert.ok(n && vt);
+  assert.ok(n.words.some(w => w.word === "influence"));
+  assert.ok(vt.words.some(w => w.word === "affect"));
+  // 每个候选含中文补充释义
+  const inf = n.words.find(w => w.word === "influence");
+  assert.ok(inf.means[0].length > 0);
+  assert.match(inf.means[0], /影响/);
+});
+
+test("buildCeDictResult: 无 ce.word 返回 null", () => {
+  assert.equal(mod.buildCeDictResult({}, "x"), null);
+  assert.equal(mod.buildCeDictResult({ ce: { word: [] } }, "x"), null);
 });
 
 test("buildDictResult: 命中词典返回完整 toDict", () => {

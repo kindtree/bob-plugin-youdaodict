@@ -18,6 +18,11 @@ function isSingleWord(text) {
   return /^[a-zA-Z][a-zA-Z'\-]*$/.test((text || "").trim());
 }
 
+// 是否为 1-4 个汉字的纯中文短词（用于触发"中文 -> 英文候选"路径）。
+function isShortChineseWord(text) {
+  return /^[一-鿿]{1,4}$/.test((text || "").trim());
+}
+
 // 音标 + 发音 URL。usspeech 形如 "good&type=2"，拼到 VOICE_BASE 即可出声。
 function buildPhonetics(word, ecWord) {
   var out = [];
@@ -189,6 +194,53 @@ function buildRelatedWordParts(data) {
     });
 }
 
+// 中文 -> 英文候选。结构：ce.word[0]{phone, return-phrase, trs[]}。
+// trs[].tr[0].l = { pos, i: ["", {"#text": "influence", ...}], "#tran": "中文补充" }
+// 按 pos 分组到 relatedWordParts（Bob 会把英文 word 渲染成可点蓝字，点击触发新查）。
+function buildCeDictResult(data, word) {
+  var ceWord = data.ce && data.ce.word;
+  var w0 = Array.isArray(ceWord) ? ceWord[0] : ceWord;
+  if (!w0 || !w0.trs || !w0.trs.length) return null;
+
+  var byPos = {}; // {pos: [{word,means}]}
+  var posOrder = []; // 保持原顺序
+  w0.trs.forEach(function (t) {
+    var l = t && t.tr && t.tr[0] && t.tr[0].l;
+    if (!l) return;
+    // 取英文词：l.i 是 ["", {"#text":"influence", ...}] 或字符串
+    var en = "";
+    if (Array.isArray(l.i)) {
+      for (var k = 0; k < l.i.length; k++) {
+        var it = l.i[k];
+        if (it && typeof it === "object" && it["#text"]) { en = it["#text"]; break; }
+        if (typeof it === "string" && it.trim()) { en = it.trim(); break; }
+      }
+    } else if (typeof l.i === "string") {
+      en = l.i;
+    }
+    if (!en) return;
+    var pos = l.pos || "";
+    var tran = (l["#tran"] || "").trim();
+    if (!byPos[pos]) { byPos[pos] = []; posOrder.push(pos); }
+    byPos[pos].push({ word: en, means: tran ? [tran] : [] });
+  });
+
+  var groups = posOrder.map(function (pos) { return { part: pos, words: byPos[pos] }; });
+  if (!groups.length) return null;
+
+  var additions = [];
+  if (w0.phone) additions.push({ name: "拼音", value: w0.phone });
+
+  return {
+    word: pickPhrase(w0["return-phrase"], word),
+    phonetics: [],
+    parts: [],
+    exchanges: [],
+    additions: additions,
+    relatedWordParts: groups
+  };
+}
+
 // 拼错词候选 -> 一个 toDict 风格的对象（无 phonetics，parts 给提示，additions 列候选）。
 // 结构：data.typos.typo[]{word, trans}。无候选返回 null。
 function buildTypoSuggestions(data, word, max) {
@@ -210,8 +262,9 @@ function buildTypoSuggestions(data, word, max) {
 
 // ---- 缓存（纯逻辑，可单测；$file 读写层在 translate 处，全 try/catch 兜底）----
 
+// 缓存键：英文小写化，保留汉字与连字符/撇号，其它非常规字符替换为下划线。
 function cacheKey(word) {
-  return (word || "").toLowerCase().replace(/[^a-z0-9'\-]/g, "_");
+  return (word || "").toLowerCase().replace(/[^a-z0-9'\-一-鿿]/g, "_");
 }
 
 function isFresh(entry, now, ttlMs) {
@@ -319,15 +372,26 @@ function translate(query, completion) {
     if (query && typeof query.onCompletion === "function") query.onCompletion(payload);
     else completion(payload);
   };
-  var text = cleanInput(query.text);
+  // 注意先 trim 一次拿原始文本，cleanInput 只对英文路径用（去首尾标点），中文路径不要去掉汉字
+  var raw = (query.text || "").trim();
+  var enText = cleanInput(query.text);
+  var isEn = isSingleWord(enText);
+  var isZh = isShortChineseWord(raw);
 
-  if (!isSingleWord(text)) {
-    finish({ result: { toParagraphs: ["本插件用于查询单个英文单词的释义、例句与发音，请输入单个单词。"] } });
+  if (!isEn && !isZh) {
+    finish({ result: { toParagraphs: ["请输入单个英文单词，或 1-4 个汉字（中文 → 英文候选）。"] } });
     return;
   }
 
+  var text = isEn ? enText : raw;
   var opts = readOptions();
   var render = function (data) {
+    if (isZh) {
+      var ce = buildCeDictResult(data, text);
+      if (ce) { finish({ result: { from: "zh-Hans", to: "en", toDict: ce } }); return; }
+      finish({ result: { toParagraphs: ["未查询到「" + text + "」的英文候选。"] } });
+      return;
+    }
     var dict = buildDictResult(data, text, opts);
     if (dict) { finish({ result: { from: "en", to: "zh-Hans", toDict: dict } }); return; }
     var typo = buildTypoSuggestions(data, text, 5);
@@ -353,13 +417,15 @@ function translate(query, completion) {
   });
 }
 
-function supportLanguages() { return ["auto", "en", "zh-Hans"]; }
+function supportLanguages() { return ["auto", "en", "zh-Hans", "zh-Hant"]; }
 function pluginTimeoutInterval() { return 10; }
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     cleanInput: cleanInput,
     isSingleWord: isSingleWord,
+    isShortChineseWord: isShortChineseWord,
+    buildCeDictResult: buildCeDictResult,
     buildPhonetics: buildPhonetics,
     buildParts: buildParts,
     buildExchanges: buildExchanges,

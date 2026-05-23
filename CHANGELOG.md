@@ -2,6 +2,16 @@
 
 本项目版本号遵循 [SemVer](https://semver.org/lang/zh-CN/);格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.5.0] - 2026-05-23
+
+### 新增
+- 中文短词查英文候选:输入 1-4 个汉字(如 `影响`),按词性分组渲染英文候选(`n. influence / effect`、`vt. affect / impact / impress`),英文词为可点蓝字,点击触发新查;附拼音和中文补充释义。
+
+### 改进
+- `cleanInput` 不再误伤中文,中文路径保留原文。
+- `cacheKey` 兼容中文字符(原来非 ASCII 一律替换成下划线)。
+- 非词输入回退提示更新为"请输入单个英文单词,或 1-4 个汉字"。
+
 ## [1.4.0] - 2026-05-23
 
 ### 新增

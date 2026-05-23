@@ -100,6 +100,7 @@ function pluginTimeoutInterval() { return 10; }                     // 可选，
 | 常用词组 | `phrs.phrs[].phr` | `{headword.l.i, trs[].tr.l.i}`(注意此处 `tr` 是对象,非数组) |
 | 考试标签 | `ec.exam_type` | 字符串数组,如 `["CET4","CET6","考研"]` |
 | 相关词(同根衍生) | `rel_word.rels[].rel` | `{pos, words[]{word, tran}}`;`tran` 有前导空格需 trim;映射到 Bob 的 `toDict.relatedWordParts`(独立字段,非 additions) |
+| 中文反查英文 | `ce.word[0]` | `{phone, return-phrase, trs[].tr[0].l{pos, i, "#tran"}}`;`l.i` 是混合数组(空字符串 + `{"#text": "influence"}` 对象);多义按 `pos` 分组到 `relatedWordParts`,英文渲染为可点蓝字。`phone` 是拼音,塞进 `additions[].name="拼音"`(`phonetics.type` 受限于 us/uk,不放拼音) |
 
 > 有道字段结构不统一(同名 `l.i` 有时字符串有时数组、`tr` 有时对象有时数组),改解析前务必 `python3 -c` 打印真实夹具对照,不要凭印象。
 
