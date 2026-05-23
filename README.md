@@ -245,5 +245,3 @@ Fork、修改、商用都欢迎,但请保留以下两点(Apache 2.0 协议强制
 2. 修改过的文件需明显标注"Modified by ..."(Apache 2.0 §4.b)
 
 参考与致敬:[xingty/bob-plugin-youdao-dict-enhance](https://github.com/xingty/bob-plugin-youdao-dict-enhance)(同根衍生词、考试标签的字段路径参考了该项目)。
-
-参考与致敬:[xingty/bob-plugin-youdao-dict-enhance](https://github.com/xingty/bob-plugin-youdao-dict-enhance)(同根衍生词、考试标签的字段路径参考了该项目)。
