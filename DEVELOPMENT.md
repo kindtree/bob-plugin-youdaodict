@@ -160,7 +160,54 @@ function pluginTimeoutInterval() { return 10; }                     // 可选，
 发布流程:`bash release.sh` → 把 `.bobplugin` 传到对应 GitHub Release → 推仓库。
 **注意**:`appcast` 用 `raw.githubusercontent.com` 公开地址,**私有仓的 raw 链接需 token,Bob 拿不到** → 要自动更新必须仓库 public,否则忽略此项(不影响查词)。
 
-## 9. 新建一个 Bob 插件的起步清单
+## 9. 协议限制 / 字段元规则 / 实测要点(沉淀)
+
+本节是开发本仓 v1.0→v2.0 期间踩过的硬约束与意外发现,集中放一处供后续翻阅。
+
+### A. Bob `toDict` 协议限制(全部已实测/查证)
+
+- `toDict` 字段全集就 6 个:`word / phonetics / parts / exchanges / relatedWordParts / additions`。除此之外没有自由扩展位。
+- `phonetics[].type` 文档只列 `"us"`/`"uk"` 两个值。塞别的(如 `"py"` 拼音、`"例句"`)大概率被 Bob 忽略 → 拼音用 `additions` 渲染。
+- `additions[].value` 是纯文本,**无 `tts` 字段** → 不能做"例句配独立喇叭"、"段落内可点链接"。
+- `toParagraphs[]` 是字符串数组,Bob 不解析 Markdown/HTML。
+- `relatedWordParts[].words[].word` 是 Bob 唯一会渲染成蓝色可点跳查的位置;点击触发对该 word 的新一次划词查询(走插件 ec 路径)。
+- 顶层 `toTTS` / `fromTTS` 是给"整段翻译音频"用,不是 per-element 音频。
+- **句子级 dictvoice 数据存在但 Bob 无字段渲染**:`blng_sents_part.sentence-pair[].sentence-speech`(如 `We+remained+good+friends.&le=eng`)拼到 dictvoice base 实测能拉到真实 47KB mp3,但 toDict 没位置塞 — 只能放弃,等 Bob 协议升级。
+
+### B. 同一份响应中同名字段结构不一致的元规则(踩坑集锦)
+
+有道 jsonapi 是非官方网页端点,字段结构不统一。**勘察新接口前必 `python3 -c` 打印真实分支**,不假设同形。已知不一致:
+
+| 同名字段 | 在 A 分支 | 在 B 分支 |
+|---|---|---|
+| `return-phrase` | `ec.word[0]` 里是 `{l:{i:"good"}}` | `simple.word[0]` 里是字符串 `"good"` |
+| `tr` | `ec.word[0].trs[]` 里是数组 | `phrs.phrs[].phr.trs[]` 里是对象 |
+| `l.i` | `ec.word[0].trs[].tr[0].l.i` 是字符串数组 | `ce.word[0].return-phrase.l.i` 是字符串 / `ce.word[0].trs[].tr[0].l.i` 是混合数组(字符串+`{#text}`对象交替) |
+| `tran` | 通常带前导空格,必须 `.trim()`(见 `buildRelatedWordParts`) | — |
+
+### C. DeepSeek (OpenAI 兼容)JSON mode 关键约束(实测)
+
+- 端点:`POST https://api.deepseek.com/chat/completions`,Header `Authorization: Bearer <key>`
+- `response_format: {type: "json_object"}` + **prompt 必须含 "json" 字 + 给示例**(否则不开严格 JSON 模式)
+- 偶发返回空 `content`(官方已知),代码必须 try/catch 兜底,失败回退 jsonapi 路径
+- 实测 `deepseek-chat` 1.2 秒响应,严格 JSON 输出
+- `temperature: 0.2` 是稳定性与自然度的甜点
+- 响应路径:`data.choices[0].message.content` 是 LLM 输出的 JSON 字符串,需二次 `JSON.parse`
+
+### D. Bob 生态与第三方协议(运营/发布层)
+
+- **官方插件索引** `bobplugin.ripperhe.com` 按 GitHub topic **`bobplugin`(单数、无连字符)** 每日自动抓取。`bob-plugin`(带连字符)**不会被收录** —— 这是本仓踩过的真实坑。
+- **Bob 1.15.0+ `thinkInfo`** 字段是给 AI 推理模型(R1 等)的"思考过程"展示用,非翻译输出。
+- **Bob 内置智谱翻译**:Bob 与智谱官方合作,**GLM-4-Flash 免 key 直接可用**(在 Bob 服务列表标"内置")。若你的插件想做翻译,先想清楚是否与 Bob 内置功能重复 —— 重复造轮子且做得更差是常见陷阱。
+- **自定义图标**:官方只文档化内置编号 `icon: "001"~"149"`。自定义图片图标无公开文档,不要硬编可能无效的机制。
+- **Bob 插件改名**:`identifier` **绝对不动**(改了 Bob 把新版当全新插件,**用户的设置/缓存/key 全部重置**);只改 `info.json` 的 `name` 字段,用户在 Bob 服务列表里就能看到新名,平稳过渡。
+- **GitHub 仓库改名**:`gh repo rename` 后旧 URL 由 GitHub 自动 301 重定向(包括 raw.githubusercontent.com),v1.x 用户的 appcast 拉取继续工作 — 但不是永久保证,**新版本应同步更新 `info.json` 的 appcast 字段** 指向新 URL,让用户首次升级后完全脱离旧 URL。
+
+### E. 元教训(适用于其它 Bob 插件 / 第三方平台开发)
+
+> 凡涉及外部生态的事实性主张(平台 topic / 协议字段名 / API 端点 / 内置服务清单 / 文件名规则),**出方案前 30 秒去 WebFetch 官方文档或 curl 实测一次**。本仓累计 4 次"凭记忆/印象出方案"踩坑:bobplugin topic 名写错 / 假设 Bob 没内置 LLM / 假设 fanyi.tran 能兜底 / 假设 phonetics.type 可塞非 us/uk 值。每次都要回头致歉撤回,浪费来回 — 这条比"先实测"更精准的版本是:**外部生态事实必须刚性验证**。
+
+## 10. 新建一个 Bob 插件的起步清单
 
 1. 建目录 + `info.json`(填 `category`/`identifier`/`minBobVersion`)。
 2. `main.js`:`translate`/`supportLanguages`/`pluginTimeoutInterval` + 纯函数 + `module.exports` 守卫。
