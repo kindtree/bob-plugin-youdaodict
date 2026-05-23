@@ -2,6 +2,13 @@
   "identifier": "com.alex.bob.youdaodict",
   "versions": [
     {
+      "version": "1.9.0",
+      "desc": "更名为「词阶 WordTier」（identifier 不变，升级无感）。LICENSE 升级到 Apache 2.0，强化作者署名条款。",
+      "sha256": "a498a1f98f2e76fb37633023d69b5895def330418c7f7d1b49d61e511f113a17",
+      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.9.0/youdaodict.bobplugin",
+      "minBobVersion": "1.8.0"
+    },
+    {
       "version": "1.8.0",
       "desc": "(beta) 等级细分到 10 档（小学/初中/高中/CET4/CET6/考研/雅思/托福/GRE/其它），新增『我的目标学习级别』+『可点词显示范围』两项设置：选定级别后 LLM 翻译会倾向该级别词汇，可点词列表按 only/above/all 三种范围过滤显示。",
       "sha256": "5166e864f51513efd556a39dee4f59efd7bb0715d8ccc9f7f32282eace5b7ebf",

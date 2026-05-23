@@ -1,9 +1,9 @@
 {
   "identifier": "com.alex.bob.youdaodict",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "category": "translate",
-  "name": "有道词典(单词)",
-  "summary": "英文单词完整词典 + 中文反查英文；可选 DeepSeek 整句翻译并按你的学习级别(小学/初中/高中/CET4-6/考研/雅思/托福/GRE)个性化分组可点词列表",
+  "name": "词阶 WordTier",
+  "summary": "按你的学习级别个性化的 Bob 学英语词典 + 整句翻译插件。英文完整词典 + 中文反查 + 可选 DeepSeek 翻译并按 CET/考研/雅思/托福/GRE 等级分组可点词",
   "icon": "001",
   "author": "Alex",
   "minBobVersion": "1.8.0",

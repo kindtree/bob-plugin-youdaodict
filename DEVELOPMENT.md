@@ -21,7 +21,7 @@ zip -j youdaodict.bobplugin info.json main.js   # -j 去掉目录层级，保证
   "identifier": "com.alex.bob.youdaodict",   // 小写字母/数字/点
   "version": "1.2.0",
   "category": "translate",                    // translate | ocr | tts
-  "name": "有道词典(单词)",
+  "name": "词阶 WordTier",
   "summary": "...",
   "icon": "001",                              // 内置图标编号 001~149；自定义图片图标官方无文档
   "author": "Alex",

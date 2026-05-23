@@ -2,6 +2,16 @@
 
 本项目版本号遵循 [SemVer](https://semver.org/lang/zh-CN/);格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.9.0] - 2026-05-23
+
+### 变更
+- **改名**:从「有道词典(单词)」改为「**词阶 WordTier**」,更准确反映核心差异化(按学习级别分组的可点词列表)。
+- **License 升级**:MIT → **Apache 2.0**;`main.js` 顶部加 SPDX-License-Identifier + 仓库链接 + 作者声明;README 加 attribution 提醒。
+
+### 不变
+- `identifier`(`com.alex.bob.youdaodict`)保持不变,**现有用户升级无感**(设置、缓存、appcast 自动更新全部继续工作)。
+- 仓库 URL 不变(`kindtree/bob-plugin-youdaodict`)。
+
 ## [1.8.0] - 2026-05-23 (beta)
 
 ### 新增
