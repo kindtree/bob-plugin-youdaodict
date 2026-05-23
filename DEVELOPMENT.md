@@ -113,7 +113,9 @@ function pluginTimeoutInterval() { return 10; }                     // 可选，
 - Bob `$http.request({method:"POST", url, header, body, handler})` 自动序列化 body 对象;响应里 `resp.data` 是已 parse 的 JSON
 - 响应路径:`data.choices[0].message.content` 是 LLM 输出的 JSON 字符串,需二次 `JSON.parse`
 - 时延:`deepseek-chat` 1-2s,`deepseek-reasoner` 5-15s
-- prompt 等级取值固定 8 个:`基础 / CET4 / CET6 / 考研 / 雅思 / 托福 / GRE / 其它`,LLM 偶尔会返回意外字符串 → `buildLlmSentenceResult` 把不在白名单的 level 归入"其它"
+- prompt 等级取值固定 10 个(v1.8 起):`小学 / 初中 / 高中 / CET4 / CET6 / 考研 / 雅思 / 托福 / GRE / 其它`,LLM 偶尔会返回意外字符串(如 v1.7 的"基础")→ `buildLlmSentenceResult` 把不在白名单的 level 归入"其它"
+- 个性化:`buildLlmPrompt(text, targetLevel)` 在 targetLevel 非 "all" 时插入"学习者当前正在准备:X"段,引导 LLM 选词。是否真生效取决于模型遵守 prompt 的程度,需真 key 实测
+- 渲染过滤:`filterLevelGroups(groups, targetLevel, range)` 按 `only / above / all` 过滤;"其它" 始终保留
 
 #### Bob `toDict.relatedWordParts` 当"按等级分组的可点词"用
 

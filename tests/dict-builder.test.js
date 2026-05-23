@@ -351,11 +351,11 @@ test("buildLlmSentenceResult: 按 level 分组、按难度顺序、去重、过�
     translation: "The interview today went well.",
     words: [
       {word:"interview", level:"CET6"},
-      {word:"today", level:"基础"},
-      {word:"went", level:"基础"},
-      {word:"well", level:"基础"},
-      {word:"Today", level:"基础"},          // 大小写重复
-      {word:".", level:"基础"},               // 标点
+      {word:"today", level:"初中"},
+      {word:"went", level:"初中"},
+      {word:"well", level:"初中"},
+      {word:"Today", level:"初中"},          // 大小写重复
+      {word:".", level:"初中"},               // 标点
       {word:"epitome", level:"GRE"}           // 难词
     ]
   };
@@ -364,14 +364,14 @@ test("buildLlmSentenceResult: 按 level 分组、按难度顺序、去重、过�
   assert.equal(d.parts[0].means[0], "The interview today went well.");
   // 来源标注
   assert.ok(d.additions.some(a => /DeepSeek/.test(a.value)));
-  // relatedWordParts 按难→易顺序:GRE 在前,基础在后
+  // relatedWordParts 按难→易顺序:GRE > CET6 > 初中
   const partsOrder = d.relatedWordParts.map(g => g.part);
-  assert.deepEqual(partsOrder, ["GRE", "CET6", "基础"]);
+  assert.deepEqual(partsOrder, ["GRE", "CET6", "初中"]);
   // 标点被过滤
   const allWords = d.relatedWordParts.flatMap(g => g.words.map(w => w.word));
   assert.ok(!allWords.includes("."));
   // 大小写去重(Today 不重复出现)
-  const basicWords = d.relatedWordParts.find(g => g.part === "基础").words.map(w => w.word.toLowerCase());
+  const basicWords = d.relatedWordParts.find(g => g.part === "初中").words.map(w => w.word.toLowerCase());
   assert.equal(basicWords.filter(w => w === "today").length, 1);
 });
 
@@ -393,6 +393,70 @@ test("buildLlmSentenceResult: word 超长截断", () => {
   const d = mod.buildLlmSentenceResult(llm, "今天".repeat(20));
   assert.ok(d.word.length <= 31);
   assert.ok(d.word.endsWith("…"));
+});
+
+test("buildLlmPrompt: targetLevel 非 all 时含学习者级别提示", () => {
+  const p = mod.buildLlmPrompt("今天面试很顺利", "雅思");
+  assert.match(p, /学习者当前正在准备：雅思/);
+  assert.match(p, /倾向使用 雅思 常考词汇/);
+});
+
+test("buildLlmPrompt: targetLevel 为 all 或缺失时不加提示", () => {
+  const p1 = mod.buildLlmPrompt("x", "all");
+  const p2 = mod.buildLlmPrompt("x");
+  assert.ok(!/学习者当前正在准备/.test(p1));
+  assert.ok(!/学习者当前正在准备/.test(p2));
+});
+
+test("buildLlmPrompt: 等级取值列表已细分到 10 档(含小学/初中/高中)", () => {
+  const p = mod.buildLlmPrompt("x", "all");
+  ["小学","初中","高中","CET4","CET6","考研","雅思","托福","GRE","其它"].forEach(l => {
+    assert.match(p, new RegExp('"' + l + '"'), `等级 "${l}" 应出现在 prompt`);
+  });
+});
+
+test("filterLevelGroups: only 模式仅保留目标级 + 其它", () => {
+  const g = { "GRE":[1], "雅思":[2], "CET4":[3], "初中":[4], "其它":[5] };
+  const out = mod.filterLevelGroups(g, "雅思", "only");
+  assert.deepEqual(Object.keys(out).sort(), ["其它","雅思"]);
+});
+
+test("filterLevelGroups: above 模式保留目标及更难等级 + 其它", () => {
+  const g = { "GRE":[1], "托福":[2], "雅思":[3], "CET6":[4], "初中":[5], "其它":[6] };
+  const out = mod.filterLevelGroups(g, "雅思", "above");
+  // 雅思及以上(更难的) = GRE/托福/雅思,加"其它"
+  assert.deepEqual(Object.keys(out).sort(), ["GRE","其它","托福","雅思"]);
+  assert.ok(!out["CET6"]);
+  assert.ok(!out["初中"]);
+});
+
+test("filterLevelGroups: all/未指定/未知目标 → 不过滤", () => {
+  const g = { "GRE":[1], "初中":[2] };
+  assert.deepEqual(Object.keys(mod.filterLevelGroups(g, "all", "above")).sort(), ["GRE","初中"]);
+  assert.deepEqual(Object.keys(mod.filterLevelGroups(g, "雅思", "all")).sort(), ["GRE","初中"]);
+  assert.deepEqual(Object.keys(mod.filterLevelGroups(g, null, "above")).sort(), ["GRE","初中"]);
+});
+
+test("buildLlmSentenceResult: opts.targetLevel + only 只渲染目标分组", () => {
+  const llm = {
+    translation: "x",
+    words: [{word:"epitome",level:"GRE"},{word:"interview",level:"CET6"},{word:"today",level:"初中"}]
+  };
+  const d = mod.buildLlmSentenceResult(llm, "x", { targetLevel: "CET6", levelRange: "only" });
+  const partNames = d.relatedWordParts.map(g => g.part);
+  assert.deepEqual(partNames, ["CET6"]);
+  // 来源标注里应含目标级别
+  assert.match(d.additions[0].value, /目标:CET6/);
+});
+
+test("buildLlmSentenceResult: opts.targetLevel + above 保留目标及以上", () => {
+  const llm = {
+    translation: "x",
+    words: [{word:"epitome",level:"GRE"},{word:"interview",level:"CET6"},{word:"today",level:"初中"}]
+  };
+  const d = mod.buildLlmSentenceResult(llm, "x", { targetLevel: "CET6", levelRange: "above" });
+  const partNames = d.relatedWordParts.map(g => g.part);
+  assert.deepEqual(partNames, ["GRE","CET6"]); // 初中被过滤
 });
 
 test("buildDictResult: 命中词典返回完整 toDict", () => {

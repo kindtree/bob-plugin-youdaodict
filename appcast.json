@@ -2,6 +2,13 @@
   "identifier": "com.alex.bob.youdaodict",
   "versions": [
     {
+      "version": "1.8.0",
+      "desc": "(beta) 等级细分到 10 档（小学/初中/高中/CET4/CET6/考研/雅思/托福/GRE/其它），新增『我的目标学习级别』+『可点词显示范围』两项设置：选定级别后 LLM 翻译会倾向该级别词汇，可点词列表按 only/above/all 三种范围过滤显示。",
+      "sha256": "5166e864f51513efd556a39dee4f59efd7bb0715d8ccc9f7f32282eace5b7ebf",
+      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.8.0/youdaodict.bobplugin",
+      "minBobVersion": "1.8.0"
+    },
+    {
       "version": "1.7.0",
       "desc": "(beta) 整句翻译可选接入 DeepSeek（用户填 API key），并按 CET4/CET6/考研/雅思/托福/GRE 等级把句中可点词分组渲染。默认关闭。失败自动回退 jsonapi。",
       "sha256": "f8604e309c93fa7b3f7ffe21b48f6acce0545bf0fe53f3d011839970b1c95595",

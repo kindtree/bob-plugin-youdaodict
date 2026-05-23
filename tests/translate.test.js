@@ -152,9 +152,9 @@ test("translate: LLM 启用 + 成功 → 渲染分组词列表，不走 jsonapi"
           translation: "The interview today went well.",
           words: [
             {word:"interview", level:"CET6"},
-            {word:"today", level:"基础"},
-            {word:"went", level:"基础"},
-            {word:"well", level:"基础"}
+            {word:"today", level:"初中"},
+            {word:"went", level:"初中"},
+            {word:"well", level:"初中"}
           ]
         })
       }
@@ -175,8 +175,43 @@ test("translate: LLM 启用 + 成功 → 渲染分组词列表，不走 jsonapi"
   assert.match(out.result.toDict.parts[0].means[0], /interview/);
   const partNames = out.result.toDict.relatedWordParts.map(g => g.part);
   assert.ok(partNames.includes("CET6"));
-  assert.ok(partNames.includes("基础"));
+  assert.ok(partNames.includes("初中"));
   assert.equal(jsonapiCalled, false, "LLM 成功不应再走 jsonapi");
+  delete global.$option;
+});
+
+test("translate: LLM 启用 + targetLevel=雅思/above → 过滤分组,prompt 含级别提示", () => {
+  delete global.$file;
+  let capturedPrompt = null;
+  const llmReply = {
+    choices: [{ message: { content: JSON.stringify({
+      translation: "The discussion was insightful.",
+      words: [
+        {word:"discussion", level:"CET6"},
+        {word:"insightful", level:"雅思"},
+        {word:"was", level:"初中"}
+      ]
+    })}}]
+  };
+  global.$http = {
+    get: () => {},
+    request: ({ body, handler }) => {
+      capturedPrompt = body.messages[1].content;
+      handler({ data: llmReply, response: { statusCode: 200 } });
+    }
+  };
+  global.$option = {
+    llmProvider: "deepseek", deepseekApiKey: "sk-test",
+    targetLevel: "雅思", levelRange: "above"
+  };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "讨论很有启发性", onCompletion: (p) => { out = p; } });
+  // prompt 里应含目标级别提示
+  assert.match(capturedPrompt, /学习者当前正在准备：雅思/);
+  // above 模式:雅思及更难 → 保留雅思,过滤掉 CET6 和初中
+  const partNames = out.result.toDict.relatedWordParts.map(g => g.part);
+  assert.deepEqual(partNames, ["雅思"]);
   delete global.$option;
 });
 

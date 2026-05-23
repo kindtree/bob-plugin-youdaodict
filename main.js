@@ -317,16 +317,26 @@ function buildCeSentenceResult(data, text) {
 // 默认关闭；用户在设置里启用 DeepSeek 并填 key 后，中文整句路径优先走 LLM，
 // 失败回退到 v1.6 的 jsonapi 兜底（不影响现有行为）。
 
-// 难度等级（由难到易，relatedWordParts 渲染顺序）。
-var LEVEL_ORDER = ["GRE", "托福", "雅思", "考研", "CET6", "CET4", "基础", "其它"];
+// 难度等级（由难到易，relatedWordParts 渲染顺序）。"其它" 永远放最后做兜底。
+var LEVEL_ORDER = ["GRE", "托福", "雅思", "考研", "CET6", "CET4", "高中", "初中", "小学", "其它"];
 
 // 构造发给 LLM 的 prompt。要求严格输出 JSON（含 "json" 字 + 示例，符合 DeepSeek JSON mode 要求）。
-function buildLlmPrompt(text) {
+// targetLevel 若非 "all"，会附加一段"学习者级别"提示，让 LLM 在选词时倾向该级别词汇。
+function buildLlmPrompt(text, targetLevel) {
+  var levelHint = "";
+  if (targetLevel && targetLevel !== "all") {
+    levelHint = "\n学习者当前正在准备：" + targetLevel +
+      "。翻译选词时，在保持自然的前提下，倾向使用 " + targetLevel +
+      " 常考词汇；避免过分简单（让学习者觉得无聊）或刻意拔高（让学习者看不懂）。\n";
+  }
   return [
-    "你是英语学习助手。把下面中文翻译成自然地道的英文，并为翻译里的每个内容词标注它在中国常见英语考试里的典型难度等级。",
+    "你是英语学习助手。" + levelHint,
+    "把下面中文翻译成自然地道的英文，并为翻译里的每个内容词标注它在中国常见英语考试里的典型难度等级。",
     "",
     "等级取值（必须严格使用以下值之一）：",
-    '- "基础"：小学/初中级别的高频词，如 today、good、water',
+    '- "小学"：小学级别的高频词，如 water、cat、red',
+    '- "初中"：初中级别的常用词，如 today、good、library',
+    '- "高中"：高中级别，如 environment、achievement、debate',
     '- "CET4"：大学英语四级常考词',
     '- "CET6"：大学英语六级常考词',
     '- "考研"：考研英语常考词',
@@ -345,12 +355,31 @@ function buildLlmPrompt(text) {
     '  "translation": "The interview today went well.",',
     '  "words": [',
     '    {"word": "interview", "level": "CET6"},',
-    '    {"word": "today", "level": "基础"}',
+    '    {"word": "today", "level": "初中"}',
     "  ]",
     "}",
     "",
     "中文：" + text
   ].join("\n");
+}
+
+// 按 targetLevel + range 过滤分组(only/above/all)。
+// only: 仅目标级别 + "其它"；above: 目标级别及以上(更难的) + "其它"；all: 不过滤。
+function filterLevelGroups(groups, targetLevel, range) {
+  if (!targetLevel || targetLevel === "all" || range === "all" || !range) return groups;
+  var idx = LEVEL_ORDER.indexOf(targetLevel);
+  if (idx < 0) return groups;
+  var out = {};
+  if (range === "only") {
+    if (groups[targetLevel]) out[targetLevel] = groups[targetLevel];
+  } else { // above
+    for (var i = 0; i <= idx; i++) {
+      var k = LEVEL_ORDER[i];
+      if (groups[k]) out[k] = groups[k];
+    }
+  }
+  if (groups["其它"]) out["其它"] = groups["其它"]; // "其它" 始终保留
+  return out;
 }
 
 // 解析 LLM 返回的 content 字符串为 {translation, words:[{word,level}]}；失败返回 null。
@@ -369,8 +398,10 @@ function parseLlmResponse(raw) {
 }
 
 // 把 LLM 解析结果渲染成 toDict：translation 进 parts 主区，words 按 level 分组进 relatedWordParts。
-function buildLlmSentenceResult(llm, text) {
+// opts: { targetLevel, levelRange } 用于过滤显示哪些等级组。
+function buildLlmSentenceResult(llm, text, opts) {
   if (!llm || !llm.translation) return null;
+  opts = opts || {};
 
   var validLevels = {};
   LEVEL_ORDER.forEach(function (l) { validLevels[l] = 1; });
@@ -388,17 +419,24 @@ function buildLlmSentenceResult(llm, text) {
     groups[level].push({ word: word, means: [] });
   });
 
+  var filtered = filterLevelGroups(groups, opts.targetLevel, opts.levelRange);
+
   var rwp = [];
   LEVEL_ORDER.forEach(function (l) {
-    if (groups[l] && groups[l].length) rwp.push({ part: l, words: groups[l] });
+    if (filtered[l] && filtered[l].length) rwp.push({ part: l, words: filtered[l] });
   });
+
+  var sourceTag = "DeepSeek (AI 估算等级,仅供参考)";
+  if (opts.targetLevel && opts.targetLevel !== "all") {
+    sourceTag += " · 目标:" + opts.targetLevel;
+  }
 
   return {
     word: text.length > 30 ? text.slice(0, 30) + "…" : text,
     phonetics: [],
     parts: [{ part: "", means: [llm.translation] }],
     exchanges: [],
-    additions: [{ name: "来源", value: "DeepSeek (AI 估算等级,仅供参考)" }],
+    additions: [{ name: "来源", value: sourceTag }],
     relatedWordParts: rwp
   };
 }
@@ -406,7 +444,7 @@ function buildLlmSentenceResult(llm, text) {
 // 调用 DeepSeek chat completions（JSON mode）。失败/解析失败时回调带 error。
 var DEEPSEEK_ENDPOINT = "https://api.deepseek.com/chat/completions";
 
-function callDeepseek(key, model, text, onDone) {
+function callDeepseek(opts, text, onDone) {
   if (typeof $http === "undefined" || !$http.request) {
     onDone({ error: { message: "$http.request 不可用" } });
     return;
@@ -417,15 +455,15 @@ function callDeepseek(key, model, text, onDone) {
     timeout: 30,
     header: {
       "Content-Type": "application/json",
-      "Authorization": "Bearer " + key
+      "Authorization": "Bearer " + (opts && opts.llmKey)
     },
     body: {
-      model: model || "deepseek-chat",
+      model: (opts && opts.llmModel) || "deepseek-chat",
       response_format: { type: "json_object" },
       temperature: 0.2,
       messages: [
         { role: "system", content: "You are an English learning assistant. Output strict JSON only." },
-        { role: "user", content: buildLlmPrompt(text) }
+        { role: "user", content: buildLlmPrompt(text, opts && opts.targetLevel) }
       ]
     },
     handler: function (resp) {
@@ -524,7 +562,9 @@ function readOptions() {
     showCollins: o.showCollins !== "off",
     llmProvider: o.llmProvider || "off",
     llmKey: o.deepseekApiKey || "",
-    llmModel: o.deepseekModel || "deepseek-chat"
+    llmModel: o.deepseekModel || "deepseek-chat",
+    targetLevel: o.targetLevel || "all",
+    levelRange: o.levelRange || "above"
   };
 }
 
@@ -634,9 +674,9 @@ function translate(query, completion) {
 
   // 中文整句 + 启用了 LLM provider + 有 key → 优先走 LLM 路径
   if (isZhSent && opts.llmProvider === "deepseek" && opts.llmKey) {
-    callDeepseek(opts.llmKey, opts.llmModel, text, function (r) {
+    callDeepseek(opts, text, function (r) {
       if (!r.error && r.data) {
-        var dict = buildLlmSentenceResult(r.data, text);
+        var dict = buildLlmSentenceResult(r.data, text, opts);
         if (dict) { finish({ result: { from: "zh-Hans", to: "en", toDict: dict } }); return; }
       }
       // LLM 失败 → 兜底走 jsonapi（不让用户因 LLM 抖动而完全无结果）
@@ -663,6 +703,7 @@ if (typeof module !== "undefined" && module.exports) {
     buildLlmPrompt: buildLlmPrompt,
     parseLlmResponse: parseLlmResponse,
     buildLlmSentenceResult: buildLlmSentenceResult,
+    filterLevelGroups: filterLevelGroups,
     LEVEL_ORDER: LEVEL_ORDER,
     buildPhonetics: buildPhonetics,
     buildParts: buildParts,

@@ -1,9 +1,9 @@
 {
   "identifier": "com.alex.bob.youdaodict",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "category": "translate",
   "name": "有道词典(单词)",
-  "summary": "英文单词完整词典 + 中文反查英文；可选 DeepSeek 整句翻译+按 CET/雅思/托福/GRE 等级分组的可点词列表",
+  "summary": "英文单词完整词典 + 中文反查英文；可选 DeepSeek 整句翻译并按你的学习级别(小学/初中/高中/CET4-6/考研/雅思/托福/GRE)个性化分组可点词列表",
   "icon": "001",
   "author": "Alex",
   "minBobVersion": "1.8.0",
@@ -67,6 +67,35 @@
       "menuValues": [
         { "title": "deepseek-chat (V3，推荐)", "value": "deepseek-chat" },
         { "title": "deepseek-reasoner (R1，推理强但慢)", "value": "deepseek-reasoner" }
+      ]
+    },
+    {
+      "identifier": "targetLevel",
+      "type": "menu",
+      "title": "我的目标学习级别",
+      "defaultValue": "all",
+      "menuValues": [
+        { "title": "不偏好（显示全部）", "value": "all" },
+        { "title": "小学", "value": "小学" },
+        { "title": "初中", "value": "初中" },
+        { "title": "高中", "value": "高中" },
+        { "title": "CET4 (大学英语四级)", "value": "CET4" },
+        { "title": "CET6 (大学英语六级)", "value": "CET6" },
+        { "title": "考研英语", "value": "考研" },
+        { "title": "雅思 IELTS", "value": "雅思" },
+        { "title": "托福 TOEFL", "value": "托福" },
+        { "title": "GRE", "value": "GRE" }
+      ]
+    },
+    {
+      "identifier": "levelRange",
+      "type": "menu",
+      "title": "可点词显示范围",
+      "defaultValue": "above",
+      "menuValues": [
+        { "title": "目标级别及以上（默认）", "value": "above" },
+        { "title": "仅目标级别", "value": "only" },
+        { "title": "全部级别", "value": "all" }
       ]
     }
   ]

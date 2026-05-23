@@ -2,6 +2,22 @@
 
 本项目版本号遵循 [SemVer](https://semver.org/lang/zh-CN/);格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.8.0] - 2026-05-23 (beta)
+
+### 新增
+- **等级细分到 10 档**:把 v1.7 的"基础"拆为"小学 / 初中 / 高中",其它保留。完整列表:小学 / 初中 / 高中 / CET4 / CET6 / 考研 / 雅思 / 托福 / GRE / 其它。
+- **新增设置项「我的目标学习级别」**:用户选自己当前在攻克的级别(默认"不偏好")。
+- **新增设置项「可点词显示范围」**:`目标级别及以上(默认)/ 仅目标级别 / 全部级别`,把列表收敛到学习者关心的范围。
+- **LLM Prompt 个性化**:当目标级别非"不偏好"时,prompt 加学习者级别提示,LLM 翻译选词会**倾向该级别常考词汇**(避免过分简单或刻意拔高)。来源标注会显示`目标:雅思`等。
+
+### 变更
+- LLM 路径相关纯函数签名调整:`buildLlmPrompt(text, targetLevel)`、`buildLlmSentenceResult(llm, text, opts)`、`callDeepseek(opts, text, onDone)`。
+- `LEVEL_ORDER` 从 8 项变为 10 项,顺序仍是难→易。
+
+### 已知 / 心智预期
+- LLM 是否真的按 `targetLevel` 调整选词,取决于模型遵守 prompt 指令的程度。`deepseek-chat` 大体能跟随,但偶尔仍会用相邻级别的词。属于 LLM 输出不确定性。
+- 等级标注的客观准确度同 v1.7(AI 估算,非考纲查询),细分到 10 档没有让 LLM 更准,只是粒度更细。
+
 ## [1.7.0] - 2026-05-23 (beta)
 
 ### 新增
