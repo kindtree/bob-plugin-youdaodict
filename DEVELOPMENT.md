@@ -98,6 +98,8 @@ function pluginTimeoutInterval() { return 10; }                     // 可选，
 | 柯林斯 | `collins.collins_entries[].entries.entry[].tran_entry[]` | `pos_entry.pos` / `tran`(含 `<b>` 需 strip)/ `exam_sents.sent[]{eng_sent,chn_sent}`;entry 有 `star` 词频 |
 | 同义词 | `syno.synos[].syno` | `{pos, ws[].w}` |
 | 常用词组 | `phrs.phrs[].phr` | `{headword.l.i, trs[].tr.l.i}`(注意此处 `tr` 是对象,非数组) |
+| 考试标签 | `ec.exam_type` | 字符串数组,如 `["CET4","CET6","考研"]` |
+| 相关词(同根衍生) | `rel_word.rels[].rel` | `{pos, words[]{word, tran}}`;`tran` 有前导空格需 trim;映射到 Bob 的 `toDict.relatedWordParts`(独立字段,非 additions) |
 
 > 有道字段结构不统一(同名 `l.i` 有时字符串有时数组、`tr` 有时对象有时数组),改解析前务必 `python3 -c` 打印真实夹具对照,不要凭印象。
 

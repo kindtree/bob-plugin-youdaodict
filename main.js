@@ -165,6 +165,30 @@ function buildStar(data) {
   return { name: "词频", value: new Array(star + 1).join("★") };
 }
 
+// 考试标签 -> addition（"CET4 / CET6 / 考研"）。结构：ec.exam_type 是字符串数组。
+function buildExamTags(data) {
+  var tags = (data.ec && data.ec.exam_type) || [];
+  if (!tags.length) return null;
+  return { name: "标签", value: tags.join(" / ") };
+}
+
+// 相关词 -> Bob toDict 的 relatedWordParts 字段（按词性分组）。
+// 结构：rel_word.rels[].rel{pos, words[]{word, tran}}（tran 通常带前导空格，trim 掉）。
+function buildRelatedWordParts(data) {
+  var rels = (data.rel_word && data.rel_word.rels) || [];
+  return rels
+    .map(function (r) { return r && r.rel; })
+    .filter(function (rel) { return rel && rel.words && rel.words.length; })
+    .map(function (rel) {
+      return {
+        part: rel.pos || "",
+        words: rel.words
+          .filter(function (w) { return w && w.word; })
+          .map(function (w) { return { word: w.word, means: [(w.tran || "").trim()] }; })
+      };
+    });
+}
+
 // ---- 缓存（纯逻辑，可单测；$file 读写层在 translate 处，全 try/catch 兜底）----
 
 function cacheKey(word) {
@@ -199,6 +223,8 @@ function buildDictResult(data, word, opts) {
   var additions = [];
   var star = buildStar(data);
   if (star) additions.push(star);
+  var tag = buildExamTags(data);
+  if (tag) additions.push(tag);
   if (showCollins) additions = additions.concat(buildCollinsDefs(data, 2));
   additions = additions.concat(buildExampleAdditions(data, exampleCount));
   additions = additions.concat(buildSynonyms(data, 2));
@@ -209,7 +235,8 @@ function buildDictResult(data, word, opts) {
     phonetics: orderByAccent(buildPhonetics(word, ecWord), accent),
     parts: buildParts(ecWord),
     exchanges: buildExchanges(ecWord),
-    additions: additions
+    additions: additions,
+    relatedWordParts: buildRelatedWordParts(data)
   };
 }
 
@@ -318,6 +345,8 @@ if (typeof module !== "undefined" && module.exports) {
     buildSynonyms: buildSynonyms,
     buildPhrases: buildPhrases,
     buildStar: buildStar,
+    buildExamTags: buildExamTags,
+    buildRelatedWordParts: buildRelatedWordParts,
     cacheKey: cacheKey,
     isFresh: isFresh,
     stripHtml: stripHtml,

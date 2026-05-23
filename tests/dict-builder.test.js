@@ -175,6 +175,41 @@ test("isFresh: TTL 内为真，超时为假", () => {
   assert.equal(mod.isFresh({}, now, 1000), false);
 });
 
+test("buildExamTags: ec.exam_type 拼成标签 addition", () => {
+  const a = mod.buildExamTags(good);
+  assert.equal(a.name, "标签");
+  assert.match(a.value, /CET4/);
+  assert.match(a.value, /考研/);
+});
+
+test("buildExamTags: 无 exam_type 或为空返回 null", () => {
+  assert.equal(mod.buildExamTags({}), null);
+  assert.equal(mod.buildExamTags({ ec: { exam_type: [] } }), null);
+});
+
+test("buildRelatedWordParts: 按词性分组，tran 去前后空格", () => {
+  const rwp = mod.buildRelatedWordParts(good);
+  assert.ok(rwp.length >= 1);
+  const adj = rwp.find(g => g.part === "adj.");
+  assert.ok(adj, "应有 adj. 分组");
+  const goody = adj.words.find(w => w.word === "goody");
+  assert.ok(goody);
+  assert.ok(goody.means[0].length > 0);
+  assert.equal(goody.means[0].charAt(0), goody.means[0].trim().charAt(0),
+    "means[0] 不应有前导空格");
+});
+
+test("buildRelatedWordParts: 无 rel_word 返回空数组", () => {
+  assert.deepEqual(mod.buildRelatedWordParts({}), []);
+});
+
+test("buildDictResult: 含 relatedWordParts 与 标签 addition", () => {
+  const d = mod.buildDictResult(good, "good");
+  assert.ok(Array.isArray(d.relatedWordParts));
+  assert.ok(d.relatedWordParts.length >= 1);
+  assert.ok(d.additions.some(a => a.name === "标签" && /CET4/.test(a.value)));
+});
+
 test("buildDictResult: 命中词典返回完整 toDict", () => {
   const d = mod.buildDictResult(good, "good");
   assert.equal(d.word, "good");
