@@ -9,7 +9,7 @@
 `.bobplugin` = 一个 zip 包,**根部**必须含 `info.json` + `main.js`(图标等可选)。
 
 ```bash
-zip -j youdaodict.bobplugin info.json main.js   # -j 去掉目录层级，保证文件在根部
+zip -j wordtier.bobplugin info.json main.js   # -j 去掉目录层级，保证文件在根部
 ```
 
 双击 `.bobplugin` 即安装;Bob 偏好设置 → 服务 中启用。
@@ -152,7 +152,7 @@ function pluginTimeoutInterval() { return 10; }                     // 可选，
 ```json
 { "identifier": "...", "versions": [
   { "version": "1.2.0", "desc": "...", "sha256": "<.bobplugin的sha256>",
-    "url": "https://github.com/<user>/<repo>/releases/download/v1.2.0/youdaodict.bobplugin",
+    "url": "https://github.com/<user>/<repo>/releases/download/v1.0.0/<your-plugin>.bobplugin",
     "minBobVersion": "1.8.0" }
 ] }
 ```

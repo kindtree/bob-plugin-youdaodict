@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 
 VERSION=$(python3 -c "import json;print(json.load(open('info.json'))['version'])")
 bash build.sh >/dev/null
-OUT="youdaodict.bobplugin"
+OUT="wordtier.bobplugin"
 SHA=$(shasum -a 256 "$OUT" | awk '{print $1}')
 
 # 写回 appcast.json 中匹配版本的 sha256

@@ -2,6 +2,18 @@
 
 本项目版本号遵循 [SemVer](https://semver.org/lang/zh-CN/);格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [2.0.0] - 2026-05-23
+
+### 变更
+- **GitHub 仓库改名**:`kindtree/bob-plugin-youdaodict` → `kindtree/bob-plugin-wordtier`;旧 URL 由 GitHub 自动 301 重定向,现有外部链接/v1.x 用户的 appcast 拉取继续工作。
+- **`.bobplugin` 文件名改名**:`youdaodict.bobplugin` → `wordtier.bobplugin`(从 v2.0.0 release 起;v1.x 老 release 文件名保留)。
+- **appcast.json 中所有 v1.x 版本的 url** 已批量更新到新仓库 URL(GitHub release 资产跟着仓库改名自动跟过去)。
+- **`info.json` 的 `appcast` URL** 改为新仓库 raw URL。v1.x 老用户首次升到 v2.0+ 后,后续自动更新完全脱离旧 URL。
+
+### 不变
+- Bob 内部 `identifier`(`com.alex.bob.youdaodict`)保持不变,**现有用户升级无感**(设置、缓存、目标级别、DeepSeek key 全部继续工作)。
+- 功能/接口/数据源 v2.0.0 没有任何变化,只改 URL 和文件名。SemVer 升 major 是为对外标识"品牌正式定型"。
+
 ## [1.9.0] - 2026-05-23
 
 ### 变更
@@ -10,7 +22,7 @@
 
 ### 不变
 - `identifier`(`com.alex.bob.youdaodict`)保持不变,**现有用户升级无感**(设置、缓存、appcast 自动更新全部继续工作)。
-- 仓库 URL 不变(`kindtree/bob-plugin-youdaodict`)。
+- v1.9.0 当时仓库名仍是 `kindtree/bob-plugin-youdaodict`(v2.0.0 才改名)。
 
 ## [1.8.0] - 2026-05-23 (beta)
 

@@ -1,6 +1,6 @@
 // Copyright 2026 Alex Lee
 // SPDX-License-Identifier: Apache-2.0
-// Source: https://github.com/kindtree/bob-plugin-youdaodict
+// Source: https://github.com/kindtree/bob-plugin-wordtier
 // Licensed under the Apache License, Version 2.0; you may not use this file except
 // in compliance with the License. See the LICENSE file in the repo root for full terms.
 

@@ -2,59 +2,66 @@
   "identifier": "com.alex.bob.youdaodict",
   "versions": [
     {
+      "version": "2.0.0",
+      "desc": "GitHub 仓库改名 bob-plugin-youdaodict -> bob-plugin-wordtier；.bobplugin 产物文件名改名 youdaodict.bobplugin -> wordtier.bobplugin。Bob identifier 不变，现有用户升级无感（设置/缓存/DeepSeek key 全部保留）。",
+      "sha256": "db2cdc440917a8ea8a79d38ee0502d04cad95c5a532a2565940f84c45ed47e1b",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v2.0.0/wordtier.bobplugin",
+      "minBobVersion": "1.8.0"
+    },
+    {
       "version": "1.9.0",
       "desc": "更名为「词阶 WordTier」（identifier 不变，升级无感）。LICENSE 升级到 Apache 2.0，强化作者署名条款。",
       "sha256": "a498a1f98f2e76fb37633023d69b5895def330418c7f7d1b49d61e511f113a17",
-      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.9.0/youdaodict.bobplugin",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v1.9.0/youdaodict.bobplugin",
       "minBobVersion": "1.8.0"
     },
     {
       "version": "1.8.0",
       "desc": "(beta) 等级细分到 10 档（小学/初中/高中/CET4/CET6/考研/雅思/托福/GRE/其它），新增『我的目标学习级别』+『可点词显示范围』两项设置：选定级别后 LLM 翻译会倾向该级别词汇，可点词列表按 only/above/all 三种范围过滤显示。",
       "sha256": "5166e864f51513efd556a39dee4f59efd7bb0715d8ccc9f7f32282eace5b7ebf",
-      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.8.0/youdaodict.bobplugin",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v1.8.0/youdaodict.bobplugin",
       "minBobVersion": "1.8.0"
     },
     {
       "version": "1.7.0",
       "desc": "(beta) 整句翻译可选接入 DeepSeek（用户填 API key），并按 CET4/CET6/考研/雅思/托福/GRE 等级把句中可点词分组渲染。默认关闭。失败自动回退 jsonapi。",
       "sha256": "f8604e309c93fa7b3f7ffe21b48f6acce0545bf0fe53f3d011839970b1c95595",
-      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.7.0/youdaodict.bobplugin",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v1.7.0/youdaodict.bobplugin",
       "minBobVersion": "1.8.0"
     },
     {
       "version": "1.6.0",
       "desc": "中文整句翻译：主译 + 多条备选译法；从翻译里抽出内容词列成可点蓝字列表（过滤停用词），点任意词跳查完整词典。",
       "sha256": "f79a18dbe15ecac93c12d4fd6f136db84f084dde2bcd47fa1e95304e126a5bc2",
-      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.6.0/youdaodict.bobplugin",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v1.6.0/youdaodict.bobplugin",
       "minBobVersion": "1.8.0"
     },
     {
       "version": "1.5.0",
       "desc": "中文短词（1-4 汉字）查英文候选：按词性分组渲染可点击的英文候选词，附拼音与中文补充释义。",
       "sha256": "cce73fba7040d894e2030db6d2b75b5c8db83cd84b479fa460ec09a04389ffa6",
-      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.5.0/youdaodict.bobplugin",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v1.5.0/youdaodict.bobplugin",
       "minBobVersion": "1.8.0"
     },
     {
       "version": "1.4.0",
       "desc": "新增拼错词模糊匹配：输入打错字母的单词时给出有道候选词建议。",
       "sha256": "0dabf40fa47481edb82f2dd924d788622b19f66f2c11ae43c712792cd75db109",
-      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.4.0/youdaodict.bobplugin",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v1.4.0/youdaodict.bobplugin",
       "minBobVersion": "1.8.0"
     },
     {
       "version": "1.3.0",
       "desc": "新增相关词(按词性的同根衍生词)与考试标签(CET4/CET6/考研等)。",
       "sha256": "d067a256abada649814a5f4079256acc6f5b54e10b44f48f2068dee7204979ed",
-      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.3.0/youdaodict.bobplugin",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v1.3.0/youdaodict.bobplugin",
       "minBobVersion": "1.8.0"
     },
     {
       "version": "1.2.0",
       "desc": "新增缓存、网络重试、输入净化、柯林斯英释、近义词、常用词组、词频星级；口音/例句数可配。",
       "sha256": "125a64dac64be6025222c90f1750facf263272c149754e80d45dfe7285a2bacf",
-      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.2.0/youdaodict.bobplugin",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v1.2.0/youdaodict.bobplugin",
       "minBobVersion": "1.8.0"
     }
   ]
