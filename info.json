@@ -1,9 +1,9 @@
 {
   "identifier": "com.alex.bob.youdaodict",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "category": "translate",
   "name": "有道词典(单词)",
-  "summary": "英文单词完整词典 + 中文反查英文（短词候选 / 整句翻译并可点查词）",
+  "summary": "英文单词完整词典 + 中文反查英文；可选 DeepSeek 整句翻译+按 CET/雅思/托福/GRE 等级分组的可点词列表",
   "icon": "001",
   "author": "Alex",
   "minBobVersion": "1.8.0",
@@ -38,6 +38,35 @@
       "menuValues": [
         { "title": "显示", "value": "on" },
         { "title": "隐藏", "value": "off" }
+      ]
+    },
+    {
+      "identifier": "llmProvider",
+      "type": "menu",
+      "title": "整句翻译服务(中文整句)",
+      "defaultValue": "off",
+      "menuValues": [
+        { "title": "关闭(走 jsonapi 兜底)", "value": "off" },
+        { "title": "DeepSeek (需 API Key)", "value": "deepseek" }
+      ]
+    },
+    {
+      "identifier": "deepseekApiKey",
+      "type": "text",
+      "title": "DeepSeek API Key",
+      "textConfig": {
+        "type": "secure",
+        "placeholderText": "sk-..."
+      }
+    },
+    {
+      "identifier": "deepseekModel",
+      "type": "menu",
+      "title": "DeepSeek 模型",
+      "defaultValue": "deepseek-chat",
+      "menuValues": [
+        { "title": "deepseek-chat (V3，推荐)", "value": "deepseek-chat" },
+        { "title": "deepseek-reasoner (R1，推理强但慢)", "value": "deepseek-reasoner" }
       ]
     }
   ]

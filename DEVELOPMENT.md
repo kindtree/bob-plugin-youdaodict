@@ -103,6 +103,22 @@ function pluginTimeoutInterval() { return 10; }                     // 可选，
 | 中文反查英文 | `ce.word[0]` | `{phone, return-phrase, trs[].tr[0].l{pos, i, "#tran"}}`;`l.i` 是混合数组(空字符串 + `{"#text": "influence"}` 对象);多义按 `pos` 分组到 `relatedWordParts`,英文渲染为可点蓝字。`phone` 是拼音,塞进 `additions[].name="拼音"`(`phonetics.type` 受限于 us/uk,不放拼音) |
 | 中文整句翻译 | `ce.word[0].trs[]` 多条备选,每条 `tr[0].l.i` 是"字符串+`{#text}`对象"混合序列 | 用 `trs[0]` 当主译(parts 主区),`trs[1..2]` 进 additions 当"其他译法";从 `#text` 抽词,过滤停用词 + 仅字母词 + 去重 → `relatedWordParts[0].words` 渲染成可点蓝字。空格/标点都在序列里,按顺序 join 即得完整英文。 |
 
+### DeepSeek LLM(v1.7+,可选)
+
+- 端点:`POST https://api.deepseek.com/chat/completions`(OpenAI 兼容协议)
+- Header:`Authorization: Bearer <user-key>` + `Content-Type: application/json`
+- Body 关键字段:`model`(`deepseek-chat` / `deepseek-reasoner`)、`response_format: {type:"json_object"}`、`temperature: 0.2`、`messages[]`
+- **JSON mode 硬要求**:prompt 必须**含 "json" 字** + 给出**示例结构**,否则可能不开启严格模式或返回非 JSON
+- **DeepSeek 已知**:JSON mode 偶发返回空 content,代码必须 try/catch 兜底,失败时回退 jsonapi 路径
+- Bob `$http.request({method:"POST", url, header, body, handler})` 自动序列化 body 对象;响应里 `resp.data` 是已 parse 的 JSON
+- 响应路径:`data.choices[0].message.content` 是 LLM 输出的 JSON 字符串,需二次 `JSON.parse`
+- 时延:`deepseek-chat` 1-2s,`deepseek-reasoner` 5-15s
+- prompt 等级取值固定 8 个:`基础 / CET4 / CET6 / 考研 / 雅思 / 托福 / GRE / 其它`,LLM 偶尔会返回意外字符串 → `buildLlmSentenceResult` 把不在白名单的 level 归入"其它"
+
+#### Bob `toDict.relatedWordParts` 当"按等级分组的可点词"用
+
+`relatedWordParts[].part` 字段被 Bob 渲染为分组标题(灰色),`.words[].word` 是蓝色可点击文本 → 点击触发新一次 Bob 划词,自动用同一组翻译服务查那个英文词(我们插件会走 ec 路径出完整词典卡)。这是协议本意之外的复用,但视觉效果好且原生支持。
+
 > 有道字段结构不统一(同名 `l.i` 有时字符串有时数组、`tr` 有时对象有时数组),改解析前务必 `python3 -c` 打印真实夹具对照,不要凭印象。
 
 ### 发音 dictvoice

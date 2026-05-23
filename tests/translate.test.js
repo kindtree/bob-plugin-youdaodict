@@ -142,6 +142,76 @@ test("translate: 中文整句走 ce 句子路径，返回翻译 + 可点词列�
   assert.ok(words.includes("weather"));
 });
 
+test("translate: LLM 启用 + 成功 → 渲染分组词列表，不走 jsonapi", () => {
+  delete global.$file;
+  let jsonapiCalled = false;
+  const llmReply = {
+    choices: [{
+      message: {
+        content: JSON.stringify({
+          translation: "The interview today went well.",
+          words: [
+            {word:"interview", level:"CET6"},
+            {word:"today", level:"基础"},
+            {word:"went", level:"基础"},
+            {word:"well", level:"基础"}
+          ]
+        })
+      }
+    }]
+  };
+  global.$http = {
+    get: () => { jsonapiCalled = true; },
+    request: ({ url, handler }) => {
+      assert.match(url, /deepseek\.com/);
+      handler({ data: llmReply, response: { statusCode: 200 } });
+    }
+  };
+  global.$option = { llmProvider: "deepseek", deepseekApiKey: "sk-test", deepseekModel: "deepseek-chat" };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "今天面试很顺利", onCompletion: (p) => { out = p; } });
+  assert.ok(out.result.toDict);
+  assert.match(out.result.toDict.parts[0].means[0], /interview/);
+  const partNames = out.result.toDict.relatedWordParts.map(g => g.part);
+  assert.ok(partNames.includes("CET6"));
+  assert.ok(partNames.includes("基础"));
+  assert.equal(jsonapiCalled, false, "LLM 成功不应再走 jsonapi");
+  delete global.$option;
+});
+
+test("translate: LLM 启用 + 失败 → 兜底走 jsonapi (v1.6 行为)", () => {
+  delete global.$file;
+  let jsonapiCalled = false;
+  global.$http = {
+    get: ({ handler }) => { jsonapiCalled = true; handler({ data: ceSent }); },
+    request: ({ handler }) => handler({ error: { message: "network down" } })
+  };
+  global.$option = { llmProvider: "deepseek", deepseekApiKey: "sk-test" };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "今天天气不错", onCompletion: (p) => { out = p; } });
+  assert.equal(jsonapiCalled, true, "LLM 失败应回退 jsonapi");
+  assert.ok(out.result.toDict);
+  assert.match(out.result.toDict.parts[0].means[0], /weather/);
+  delete global.$option;
+});
+
+test("translate: 未配 LLM (默认) → 保持 v1.6 行为,不调 deepseek", () => {
+  delete global.$file;
+  delete global.$option;
+  let requestCalled = false;
+  global.$http = {
+    get: ({ handler }) => handler({ data: ceSent }),
+    request: () => { requestCalled = true; }
+  };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "今天天气不错", onCompletion: (p) => { out = p; } });
+  assert.equal(requestCalled, false, "未配 LLM 不应调用 chat completions");
+  assert.ok(out.result.toDict);
+});
+
 test("supportLanguages / pluginTimeoutInterval", () => {
   const mod = loadFresh();
   assert.ok(mod.supportLanguages().includes("en"));

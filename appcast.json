@@ -2,6 +2,13 @@
   "identifier": "com.alex.bob.youdaodict",
   "versions": [
     {
+      "version": "1.7.0",
+      "desc": "(beta) 整句翻译可选接入 DeepSeek（用户填 API key），并按 CET4/CET6/考研/雅思/托福/GRE 等级把句中可点词分组渲染。默认关闭。失败自动回退 jsonapi。",
+      "sha256": "f8604e309c93fa7b3f7ffe21b48f6acce0545bf0fe53f3d011839970b1c95595",
+      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.7.0/youdaodict.bobplugin",
+      "minBobVersion": "1.8.0"
+    },
+    {
       "version": "1.6.0",
       "desc": "中文整句翻译：主译 + 多条备选译法；从翻译里抽出内容词列成可点蓝字列表（过滤停用词），点任意词跳查完整词典。",
       "sha256": "f79a18dbe15ecac93c12d4fd6f136db84f084dde2bcd47fa1e95304e126a5bc2",

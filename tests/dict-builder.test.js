@@ -313,6 +313,88 @@ test("buildCeSentenceResult: 无 ce.word 返回 null", () => {
   assert.equal(mod.buildCeSentenceResult({}, "x"), null);
 });
 
+test("buildLlmPrompt: 含 'json' 字、含示例、含中文输入", () => {
+  const p = mod.buildLlmPrompt("今天面试很顺利");
+  assert.match(p, /json/i, "DeepSeek JSON mode 要求 prompt 含 'json'");
+  assert.match(p, /translation/);
+  assert.match(p, /CET4/);
+  assert.match(p, /雅思/);
+  assert.match(p, /今天面试很顺利/);
+});
+
+test("parseLlmResponse: 合法 JSON 解析成功", () => {
+  const raw = JSON.stringify({
+    translation: "The interview today went well.",
+    words: [{word:"interview", level:"CET6"}, {word:"today", level:"基础"}]
+  });
+  const r = mod.parseLlmResponse(raw);
+  assert.equal(r.translation, "The interview today went well.");
+  assert.equal(r.words.length, 2);
+  assert.equal(r.words[0].word, "interview");
+});
+
+test("parseLlmResponse: 非 JSON / 空 / 缺字段 返回 null", () => {
+  assert.equal(mod.parseLlmResponse("not json"), null);
+  assert.equal(mod.parseLlmResponse(""), null);
+  assert.equal(mod.parseLlmResponse(null), null);
+  assert.equal(mod.parseLlmResponse('{"foo":"bar"}'), null, "缺 translation 字段");
+  assert.equal(mod.parseLlmResponse('{"translation":""}'), null, "translation 空");
+});
+
+test("parseLlmResponse: words 缺失或非数组时退化为空数组", () => {
+  const r = mod.parseLlmResponse('{"translation":"hello"}');
+  assert.deepEqual(r.words, []);
+});
+
+test("buildLlmSentenceResult: 按 level 分组、按难度顺序、去重、过滤非字母词", () => {
+  const llm = {
+    translation: "The interview today went well.",
+    words: [
+      {word:"interview", level:"CET6"},
+      {word:"today", level:"基础"},
+      {word:"went", level:"基础"},
+      {word:"well", level:"基础"},
+      {word:"Today", level:"基础"},          // 大小写重复
+      {word:".", level:"基础"},               // 标点
+      {word:"epitome", level:"GRE"}           // 难词
+    ]
+  };
+  const d = mod.buildLlmSentenceResult(llm, "今天面试很顺利");
+  // 主译进 parts
+  assert.equal(d.parts[0].means[0], "The interview today went well.");
+  // 来源标注
+  assert.ok(d.additions.some(a => /DeepSeek/.test(a.value)));
+  // relatedWordParts 按难→易顺序:GRE 在前,基础在后
+  const partsOrder = d.relatedWordParts.map(g => g.part);
+  assert.deepEqual(partsOrder, ["GRE", "CET6", "基础"]);
+  // 标点被过滤
+  const allWords = d.relatedWordParts.flatMap(g => g.words.map(w => w.word));
+  assert.ok(!allWords.includes("."));
+  // 大小写去重(Today 不重复出现)
+  const basicWords = d.relatedWordParts.find(g => g.part === "基础").words.map(w => w.word.toLowerCase());
+  assert.equal(basicWords.filter(w => w === "today").length, 1);
+});
+
+test("buildLlmSentenceResult: 未知 level 归入 '其它'", () => {
+  const llm = { translation: "Hello world.", words: [{word:"hello", level:"hallucination"}, {word:"world", level:"GRE"}] };
+  const d = mod.buildLlmSentenceResult(llm, "你好世界");
+  const other = d.relatedWordParts.find(g => g.part === "其它");
+  assert.ok(other, "未知 level 应进 '其它' 分组");
+  assert.equal(other.words[0].word, "hello");
+});
+
+test("buildLlmSentenceResult: 无 translation 返回 null", () => {
+  assert.equal(mod.buildLlmSentenceResult(null, "x"), null);
+  assert.equal(mod.buildLlmSentenceResult({words:[]}, "x"), null);
+});
+
+test("buildLlmSentenceResult: word 超长截断", () => {
+  const llm = { translation: "x", words: [] };
+  const d = mod.buildLlmSentenceResult(llm, "今天".repeat(20));
+  assert.ok(d.word.length <= 31);
+  assert.ok(d.word.endsWith("…"));
+});
+
 test("buildDictResult: 命中词典返回完整 toDict", () => {
   const d = mod.buildDictResult(good, "good");
   assert.equal(d.word, "good");

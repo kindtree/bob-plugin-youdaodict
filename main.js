@@ -313,6 +313,135 @@ function buildCeSentenceResult(data, text) {
   };
 }
 
+// ---- LLM（v1.7+）：可选的整句翻译 + 难度分级 ----
+// 默认关闭；用户在设置里启用 DeepSeek 并填 key 后，中文整句路径优先走 LLM，
+// 失败回退到 v1.6 的 jsonapi 兜底（不影响现有行为）。
+
+// 难度等级（由难到易，relatedWordParts 渲染顺序）。
+var LEVEL_ORDER = ["GRE", "托福", "雅思", "考研", "CET6", "CET4", "基础", "其它"];
+
+// 构造发给 LLM 的 prompt。要求严格输出 JSON（含 "json" 字 + 示例，符合 DeepSeek JSON mode 要求）。
+function buildLlmPrompt(text) {
+  return [
+    "你是英语学习助手。把下面中文翻译成自然地道的英文，并为翻译里的每个内容词标注它在中国常见英语考试里的典型难度等级。",
+    "",
+    "等级取值（必须严格使用以下值之一）：",
+    '- "基础"：小学/初中级别的高频词，如 today、good、water',
+    '- "CET4"：大学英语四级常考词',
+    '- "CET6"：大学英语六级常考词',
+    '- "考研"：考研英语常考词',
+    '- "雅思"：雅思常见词',
+    '- "托福"：托福常见词',
+    '- "GRE"：GRE 常见词',
+    '- "其它"：你不确定的词',
+    "",
+    "规则：",
+    "1. 只标注内容词（名词、动词、形容词、副词），跳过 the/a/is/of/to/and 等虚词。",
+    "2. 同一个词如果跨多个等级，给出最常见的那个（一般取较低等级）。",
+    "3. 翻译保持自然，不要逐字直译。",
+    "",
+    "输出严格 json，不要任何额外说明。示例：",
+    "{",
+    '  "translation": "The interview today went well.",',
+    '  "words": [',
+    '    {"word": "interview", "level": "CET6"},',
+    '    {"word": "today", "level": "基础"}',
+    "  ]",
+    "}",
+    "",
+    "中文：" + text
+  ].join("\n");
+}
+
+// 解析 LLM 返回的 content 字符串为 {translation, words:[{word,level}]}；失败返回 null。
+function parseLlmResponse(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  var d;
+  try { d = JSON.parse(raw); } catch (e) { return null; }
+  if (!d || typeof d.translation !== "string" || !d.translation.trim()) return null;
+  var ws = Array.isArray(d.words) ? d.words : [];
+  return {
+    translation: d.translation.trim(),
+    words: ws
+      .filter(function (w) { return w && typeof w.word === "string" && w.word.trim(); })
+      .map(function (w) { return { word: w.word.trim(), level: (w.level || "其它").trim() }; })
+  };
+}
+
+// 把 LLM 解析结果渲染成 toDict：translation 进 parts 主区，words 按 level 分组进 relatedWordParts。
+function buildLlmSentenceResult(llm, text) {
+  if (!llm || !llm.translation) return null;
+
+  var validLevels = {};
+  LEVEL_ORDER.forEach(function (l) { validLevels[l] = 1; });
+
+  var groups = {};
+  var seen = {};
+  (llm.words || []).forEach(function (w) {
+    var word = (w.word || "").trim();
+    if (!word || !/^[a-zA-Z][a-zA-Z'\-]*$/.test(word)) return;
+    var k = word.toLowerCase();
+    if (seen[k]) return;
+    seen[k] = 1;
+    var level = validLevels[w.level] ? w.level : "其它";
+    if (!groups[level]) groups[level] = [];
+    groups[level].push({ word: word, means: [] });
+  });
+
+  var rwp = [];
+  LEVEL_ORDER.forEach(function (l) {
+    if (groups[l] && groups[l].length) rwp.push({ part: l, words: groups[l] });
+  });
+
+  return {
+    word: text.length > 30 ? text.slice(0, 30) + "…" : text,
+    phonetics: [],
+    parts: [{ part: "", means: [llm.translation] }],
+    exchanges: [],
+    additions: [{ name: "来源", value: "DeepSeek (AI 估算等级,仅供参考)" }],
+    relatedWordParts: rwp
+  };
+}
+
+// 调用 DeepSeek chat completions（JSON mode）。失败/解析失败时回调带 error。
+var DEEPSEEK_ENDPOINT = "https://api.deepseek.com/chat/completions";
+
+function callDeepseek(key, model, text, onDone) {
+  if (typeof $http === "undefined" || !$http.request) {
+    onDone({ error: { message: "$http.request 不可用" } });
+    return;
+  }
+  $http.request({
+    method: "POST",
+    url: DEEPSEEK_ENDPOINT,
+    timeout: 30,
+    header: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + key
+    },
+    body: {
+      model: model || "deepseek-chat",
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: "You are an English learning assistant. Output strict JSON only." },
+        { role: "user", content: buildLlmPrompt(text) }
+      ]
+    },
+    handler: function (resp) {
+      if (resp.error) { onDone({ error: resp.error }); return; }
+      var data = resp.data;
+      if (typeof data === "string") { try { data = JSON.parse(data); } catch (e) { onDone({ error: { message: "响应不是合法 JSON" } }); return; } }
+      if (data && data.error) { onDone({ error: data.error }); return; }
+      var content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!content) { onDone({ error: { message: "LLM 返回为空(DeepSeek 已知偶发)" } }); return; }
+      var parsed = parseLlmResponse(content);
+      if (!parsed) { onDone({ error: { message: "LLM 返回非预期 JSON 结构" } }); return; }
+      onDone({ data: parsed });
+    }
+  });
+}
+
 // 拼错词候选 -> 一个 toDict 风格的对象（无 phonetics，parts 给提示，additions 列候选）。
 // 结构：data.typos.typo[]{word, trans}。无候选返回 null。
 function buildTypoSuggestions(data, word, max) {
@@ -392,7 +521,10 @@ function readOptions() {
   return {
     accent: o.accent === "uk" ? "uk" : "us",
     exampleCount: parseInt(o.exampleCount, 10) || 2,
-    showCollins: o.showCollins !== "off"
+    showCollins: o.showCollins !== "off",
+    llmProvider: o.llmProvider || "off",
+    llmKey: o.deepseekApiKey || "",
+    llmModel: o.deepseekModel || "deepseek-chat"
   };
 }
 
@@ -458,7 +590,8 @@ function translate(query, completion) {
 
   var text = isEn ? enText : raw;
   var opts = readOptions();
-  var render = function (data) {
+
+  var renderJsonapi = function (data) {
     if (isZhShort) {
       var ce = buildCeDictResult(data, text);
       if (ce) { finish({ result: { from: "zh-Hans", to: "en", toDict: ce } }); return; }
@@ -468,7 +601,10 @@ function translate(query, completion) {
     if (isZhSent) {
       var sent = buildCeSentenceResult(data, text);
       if (sent) { finish({ result: { from: "zh-Hans", to: "en", toDict: sent } }); return; }
-      finish({ result: { toParagraphs: ["未查询到「" + text + "」的翻译。"] } });
+      var hint = (opts.llmProvider === "off")
+        ? "未查询到「" + text + "」。整句翻译可以开启 Bob 内置的「智谱翻译」(免费免 key)，或在本插件设置里启用 DeepSeek。"
+        : "未查询到「" + text + "」的翻译(LLM 不可用时的兜底)。";
+      finish({ result: { toParagraphs: [hint] } });
       return;
     }
     var dict = buildDictResult(data, text, opts);
@@ -478,22 +614,38 @@ function translate(query, completion) {
     finish({ result: { toParagraphs: ["未查询到「" + text + "」的词典释义。"] } });
   };
 
-  var cached = cacheGet(text);
-  if (cached) { render(cached); return; }
+  var runJsonapi = function () {
+    var cached = cacheGet(text);
+    if (cached) { renderJsonapi(cached); return; }
+    fetchDict(text, function (resp) {
+      if (resp.error) {
+        finish({ error: { type: "network", message: "查询失败：" + (resp.error.message || "网络错误") } });
+        return;
+      }
+      var data = resp.data;
+      if (typeof data === "string") {
+        try { data = JSON.parse(data); }
+        catch (e) { finish({ error: { type: "api", message: "返回数据解析失败" } }); return; }
+      }
+      cacheSet(text, data);
+      renderJsonapi(data);
+    });
+  };
 
-  fetchDict(text, function (resp) {
-    if (resp.error) {
-      finish({ error: { type: "network", message: "查询失败：" + (resp.error.message || "网络错误") } });
-      return;
-    }
-    var data = resp.data;
-    if (typeof data === "string") {
-      try { data = JSON.parse(data); }
-      catch (e) { finish({ error: { type: "api", message: "返回数据解析失败" } }); return; }
-    }
-    cacheSet(text, data);
-    render(data);
-  });
+  // 中文整句 + 启用了 LLM provider + 有 key → 优先走 LLM 路径
+  if (isZhSent && opts.llmProvider === "deepseek" && opts.llmKey) {
+    callDeepseek(opts.llmKey, opts.llmModel, text, function (r) {
+      if (!r.error && r.data) {
+        var dict = buildLlmSentenceResult(r.data, text);
+        if (dict) { finish({ result: { from: "zh-Hans", to: "en", toDict: dict } }); return; }
+      }
+      // LLM 失败 → 兜底走 jsonapi（不让用户因 LLM 抖动而完全无结果）
+      runJsonapi();
+    });
+    return;
+  }
+
+  runJsonapi();
 }
 
 function supportLanguages() { return ["auto", "en", "zh-Hans", "zh-Hant"]; }
@@ -508,6 +660,10 @@ if (typeof module !== "undefined" && module.exports) {
     buildCeDictResult: buildCeDictResult,
     parseCeSentenceTr: parseCeSentenceTr,
     buildCeSentenceResult: buildCeSentenceResult,
+    buildLlmPrompt: buildLlmPrompt,
+    parseLlmResponse: parseLlmResponse,
+    buildLlmSentenceResult: buildLlmSentenceResult,
+    LEVEL_ORDER: LEVEL_ORDER,
     buildPhonetics: buildPhonetics,
     buildParts: buildParts,
     buildExchanges: buildExchanges,

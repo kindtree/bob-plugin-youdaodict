@@ -2,6 +2,20 @@
 
 本项目版本号遵循 [SemVer](https://semver.org/lang/zh-CN/);格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.7.0] - 2026-05-23 (beta)
+
+### 新增
+- **整句翻译可选接入 DeepSeek**(`info.json` 设置中"整句翻译服务"选 DeepSeek + 填 API key 开启;默认关闭)。开启后,中文整句路径优先调 DeepSeek 拿翻译,并按 **CET4 / CET6 / 考研 / 雅思 / 托福 / GRE / 基础** 等级把句中可点词分组渲染到 `relatedWordParts`。点任意词跳查完整词典。
+- 模型可选 `deepseek-chat`(V3,推荐)或 `deepseek-reasoner`(R1,推理强但慢)。
+- LLM 调用失败 / JSON 解析失败 → 自动回退 v1.6 的 jsonapi 行为,用户始终有结果。
+- 改善未配置 LLM 时的中文整句回退提示,引导用户开启 Bob 内置智谱翻译或本插件 LLM 设置。
+
+### 已知 / 心智预期
+- 等级标注由 DeepSeek 推理,**不是权威考纲查询**,可能漂移(同一词不同次调用偶尔给出不同等级)。`additions` 已标注"AI 估算等级,仅供参考"。
+- 每次划词 1 次 LLM 调用(`deepseek-chat` 单次约 ¥0.001),启用前注意预算。
+- 本版本暂未为 LLM 加缓存(同句多次调用每次都收费),后续 v1.8 会加。
+- README 的"无 key 零依赖"承诺已软化为:**核心词典功能仍无 key**,整句翻译为可选解锁。
+
 ## [1.6.0] - 2026-05-23
 
 ### 新增
