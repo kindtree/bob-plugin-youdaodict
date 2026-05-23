@@ -6,6 +6,7 @@ const mod = require("../main.js");
 
 const good = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-good.json"), "utf8"));
 const notfound = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-notfound.json"), "utf8"));
+const typo = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-typo.json"), "utf8"));
 
 test("isSingleWord: 单词为真，含空格/中文/空串为假", () => {
   assert.equal(mod.isSingleWord("good"), true);
@@ -208,6 +209,25 @@ test("buildDictResult: 含 relatedWordParts 与 标签 addition", () => {
   assert.ok(Array.isArray(d.relatedWordParts));
   assert.ok(d.relatedWordParts.length >= 1);
   assert.ok(d.additions.some(a => a.name === "标签" && /CET4/.test(a.value)));
+});
+
+test("buildTypoSuggestions: 拼错词返回候选 + 提示 parts", () => {
+  const s = mod.buildTypoSuggestions(typo, "serendipty", 5);
+  assert.ok(s, "应返回结果对象");
+  assert.equal(s.word, "serendipty");
+  assert.match(s.parts[0].means[0], /要找的是不是/);
+  assert.ok(s.additions.length >= 1);
+  assert.ok(s.additions.some(a => /serendipity/i.test(a.value)));
+});
+
+test("buildTypoSuggestions: 限制候选数量", () => {
+  const s = mod.buildTypoSuggestions(typo, "x", 1);
+  assert.equal(s.additions.length, 1);
+});
+
+test("buildTypoSuggestions: 无 typos 返回 null", () => {
+  assert.equal(mod.buildTypoSuggestions({}, "x", 5), null);
+  assert.equal(mod.buildTypoSuggestions(notfound, "x", 5), null);
 });
 
 test("buildDictResult: 命中词典返回完整 toDict", () => {

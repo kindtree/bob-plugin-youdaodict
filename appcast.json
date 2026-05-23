@@ -2,6 +2,13 @@
   "identifier": "com.alex.bob.youdaodict",
   "versions": [
     {
+      "version": "1.4.0",
+      "desc": "新增拼错词模糊匹配：输入打错字母的单词时给出有道候选词建议。",
+      "sha256": "0dabf40fa47481edb82f2dd924d788622b19f66f2c11ae43c712792cd75db109",
+      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.4.0/youdaodict.bobplugin",
+      "minBobVersion": "1.8.0"
+    },
+    {
       "version": "1.3.0",
       "desc": "新增相关词(按词性的同根衍生词)与考试标签(CET4/CET6/考研等)。",
       "sha256": "d067a256abada649814a5f4079256acc6f5b54e10b44f48f2068dee7204979ed",

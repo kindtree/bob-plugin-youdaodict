@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const good = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-good.json"), "utf8"));
+const typo = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-typo.json"), "utf8"));
 
 function loadFresh() {
   delete require.cache[require.resolve("../main.js")];
@@ -101,6 +102,17 @@ test("translate: 4xx 时重试一次", () => {
   mod.translate({ text: "good", onCompletion: (p) => { out = p; } });
   assert.equal(calls, 2, "首次 412 应重试一次");
   assert.ok(out.result.toDict);
+});
+
+test("translate: 拼错词走 typo 路径，返回 toDict 含候选", () => {
+  delete global.$file;
+  global.$http = { get: ({ handler }) => handler({ data: typo }) };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "serendipty", onCompletion: (p) => { out = p; } });
+  assert.ok(out.result.toDict, "应返回 toDict（而非 toParagraphs）");
+  assert.match(out.result.toDict.parts[0].means[0], /要找的是不是/);
+  assert.ok(out.result.toDict.additions.some(a => /serendipity/i.test(a.value)));
 });
 
 test("supportLanguages / pluginTimeoutInterval", () => {

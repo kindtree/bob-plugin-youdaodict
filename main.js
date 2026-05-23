@@ -189,6 +189,25 @@ function buildRelatedWordParts(data) {
     });
 }
 
+// 拼错词候选 -> 一个 toDict 风格的对象（无 phonetics，parts 给提示，additions 列候选）。
+// 结构：data.typos.typo[]{word, trans}。无候选返回 null。
+function buildTypoSuggestions(data, word, max) {
+  var arr = (data.typos && data.typos.typo) || [];
+  if (!arr.length) return null;
+  return {
+    word: word,
+    phonetics: [],
+    parts: [{ part: "", means: ["未找到该词，您要找的是不是："] }],
+    exchanges: [],
+    additions: arr.slice(0, max || 5).map(function (t) {
+      var w = (t.word || "").trim();
+      var tr = (t.trans || "").trim();
+      return { name: "近似", value: tr ? (w + " — " + tr) : w };
+    }),
+    relatedWordParts: []
+  };
+}
+
 // ---- 缓存（纯逻辑，可单测；$file 读写层在 translate 处，全 try/catch 兜底）----
 
 function cacheKey(word) {
@@ -310,8 +329,10 @@ function translate(query, completion) {
   var opts = readOptions();
   var render = function (data) {
     var dict = buildDictResult(data, text, opts);
-    if (!dict) { finish({ result: { toParagraphs: ["未查询到「" + text + "」的词典释义。"] } }); return; }
-    finish({ result: { from: "en", to: "zh-Hans", toDict: dict } });
+    if (dict) { finish({ result: { from: "en", to: "zh-Hans", toDict: dict } }); return; }
+    var typo = buildTypoSuggestions(data, text, 5);
+    if (typo) { finish({ result: { from: "en", to: "zh-Hans", toDict: typo } }); return; }
+    finish({ result: { toParagraphs: ["未查询到「" + text + "」的词典释义。"] } });
   };
 
   var cached = cacheGet(text);
@@ -347,6 +368,7 @@ if (typeof module !== "undefined" && module.exports) {
     buildStar: buildStar,
     buildExamTags: buildExamTags,
     buildRelatedWordParts: buildRelatedWordParts,
+    buildTypoSuggestions: buildTypoSuggestions,
     cacheKey: cacheKey,
     isFresh: isFresh,
     stripHtml: stripHtml,
