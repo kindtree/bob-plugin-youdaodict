@@ -6,6 +6,7 @@ const path = require("node:path");
 const good = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-good.json"), "utf8"));
 const typo = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-typo.json"), "utf8"));
 const ce = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-ce-yingxiang.json"), "utf8"));
+const ceSent = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-ce-sentence.json"), "utf8"));
 
 function loadFresh() {
   delete require.cache[require.resolve("../main.js")];
@@ -127,6 +128,18 @@ test("translate: 中文短词走 ce 路径，返回 toDict 含英文候选", () 
   assert.ok(out.result.toDict.relatedWordParts.length >= 1);
   const allWords = out.result.toDict.relatedWordParts.flatMap(g => g.words.map(w => w.word));
   assert.ok(allWords.includes("influence"));
+});
+
+test("translate: 中文整句走 ce 句子路径，返回翻译 + 可点词列表", () => {
+  delete global.$file;
+  global.$http = { get: ({ handler }) => handler({ data: ceSent }) };
+  const mod = loadFresh();
+  let out;
+  mod.translate({ text: "今天天气不错", onCompletion: (p) => { out = p; } });
+  assert.ok(out.result.toDict);
+  assert.match(out.result.toDict.parts[0].means[0], /weather/);
+  const words = out.result.toDict.relatedWordParts[0].words.map(w => w.word.toLowerCase());
+  assert.ok(words.includes("weather"));
 });
 
 test("supportLanguages / pluginTimeoutInterval", () => {

@@ -23,6 +23,23 @@ function isShortChineseWord(text) {
   return /^[一-鿿]{1,4}$/.test((text || "").trim());
 }
 
+// 文本是否含汉字（用于"中文整句翻译"路径触发）。
+function containsChinese(text) {
+  return /[一-鿿]/.test((text || "").trim());
+}
+
+// 句子级英文停用词（不进可点词列表）
+var STOP_WORDS = (function () {
+  var list = ("a an the is am are was were be been being do does did done will would shall " +
+    "should can could may might must have has had of in on at to for with without by from " +
+    "into onto upon and or but nor so yet not no my your his her its our their this that " +
+    "these those he she it we they you i me us them him as if then than there here when " +
+    "where why how what which who whom whose").split(/\s+/);
+  var o = {};
+  list.forEach(function (w) { o[w] = 1; });
+  return o;
+})();
+
 // 音标 + 发音 URL。usspeech 形如 "good&type=2"，拼到 VOICE_BASE 即可出声。
 function buildPhonetics(word, ecWord) {
   var out = [];
@@ -241,6 +258,61 @@ function buildCeDictResult(data, word) {
   };
 }
 
+// 解析 ce 节里单条 trs 的整句翻译。tr[0].l.i 是混合数组：字符串 + {#text} 对象交替。
+// 返回 {english: "完整英文句", words: ["The","weather",...]}（words 保持原顺序，含停用词，调用方再过滤）。
+function parseCeSentenceTr(trItem) {
+  var i = trItem && trItem.tr && trItem.tr[0] && trItem.tr[0].l && trItem.tr[0].l.i;
+  if (!Array.isArray(i)) return { english: "", words: [] };
+  var parts = [];
+  var words = [];
+  i.forEach(function (x) {
+    if (typeof x === "string") { parts.push(x); return; }
+    if (x && typeof x === "object" && x["#text"]) {
+      parts.push(x["#text"]);
+      words.push(x["#text"]);
+    }
+  });
+  return { english: parts.join("").trim(), words: words };
+}
+
+// 中文整句 -> 翻译 + 可点词列表。结构：ce.word[0].trs[] 多条备选译法，取 trs[0] 当主译，
+// 其余进 additions 当"其他译法"。词列表去停用词 + 去重 + 仅保留字母词。
+function buildCeSentenceResult(data, text) {
+  var w0 = data.ce && data.ce.word;
+  var word = Array.isArray(w0) ? w0[0] : w0;
+  var trs = word && word.trs;
+  if (!Array.isArray(trs) || !trs.length) return null;
+
+  var main = parseCeSentenceTr(trs[0]);
+  if (!main.english) return null;
+
+  // 去停用词 + 去重 + 仅字母词
+  var seen = {}, clickable = [];
+  main.words.forEach(function (w) {
+    if (!/^[a-zA-Z][a-zA-Z'\-]*$/.test(w)) return;
+    var k = w.toLowerCase();
+    if (STOP_WORDS[k] || seen[k]) return;
+    seen[k] = 1;
+    clickable.push({ word: w, means: [] });
+  });
+
+  // 备选译法（最多 2 条）
+  var alts = [];
+  for (var i = 1; i < trs.length && alts.length < 2; i++) {
+    var s = parseCeSentenceTr(trs[i]).english;
+    if (s) alts.push({ name: "其他译法", value: s });
+  }
+
+  return {
+    word: text.length > 30 ? text.slice(0, 30) + "…" : text,
+    phonetics: [],
+    parts: [{ part: "", means: [main.english] }],
+    exchanges: [],
+    additions: alts,
+    relatedWordParts: clickable.length ? [{ part: "", words: clickable }] : []
+  };
+}
+
 // 拼错词候选 -> 一个 toDict 风格的对象（无 phonetics，parts 给提示，additions 列候选）。
 // 结构：data.typos.typo[]{word, trans}。无候选返回 null。
 function buildTypoSuggestions(data, word, max) {
@@ -376,20 +448,27 @@ function translate(query, completion) {
   var raw = (query.text || "").trim();
   var enText = cleanInput(query.text);
   var isEn = isSingleWord(enText);
-  var isZh = isShortChineseWord(raw);
+  var isZhShort = isShortChineseWord(raw);
+  var isZhSent = !isZhShort && containsChinese(raw);
 
-  if (!isEn && !isZh) {
-    finish({ result: { toParagraphs: ["请输入单个英文单词，或 1-4 个汉字（中文 → 英文候选）。"] } });
+  if (!isEn && !isZhShort && !isZhSent) {
+    finish({ result: { toParagraphs: ["请输入单个英文单词，或中文（短词反查英文 / 整句翻译并列出可点词）。"] } });
     return;
   }
 
   var text = isEn ? enText : raw;
   var opts = readOptions();
   var render = function (data) {
-    if (isZh) {
+    if (isZhShort) {
       var ce = buildCeDictResult(data, text);
       if (ce) { finish({ result: { from: "zh-Hans", to: "en", toDict: ce } }); return; }
       finish({ result: { toParagraphs: ["未查询到「" + text + "」的英文候选。"] } });
+      return;
+    }
+    if (isZhSent) {
+      var sent = buildCeSentenceResult(data, text);
+      if (sent) { finish({ result: { from: "zh-Hans", to: "en", toDict: sent } }); return; }
+      finish({ result: { toParagraphs: ["未查询到「" + text + "」的翻译。"] } });
       return;
     }
     var dict = buildDictResult(data, text, opts);
@@ -425,7 +504,10 @@ if (typeof module !== "undefined" && module.exports) {
     cleanInput: cleanInput,
     isSingleWord: isSingleWord,
     isShortChineseWord: isShortChineseWord,
+    containsChinese: containsChinese,
     buildCeDictResult: buildCeDictResult,
+    parseCeSentenceTr: parseCeSentenceTr,
+    buildCeSentenceResult: buildCeSentenceResult,
     buildPhonetics: buildPhonetics,
     buildParts: buildParts,
     buildExchanges: buildExchanges,

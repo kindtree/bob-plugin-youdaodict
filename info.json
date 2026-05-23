@@ -1,9 +1,9 @@
 {
   "identifier": "com.alex.bob.youdaodict",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "category": "translate",
   "name": "有道词典(单词)",
-  "summary": "英文单词完整词典 + 中文短词查英文候选；英美发音、柯林斯英释、双语例句、拼错提示",
+  "summary": "英文单词完整词典 + 中文反查英文（短词候选 / 整句翻译并可点查词）",
   "icon": "001",
   "author": "Alex",
   "minBobVersion": "1.8.0",

@@ -2,6 +2,13 @@
   "identifier": "com.alex.bob.youdaodict",
   "versions": [
     {
+      "version": "1.6.0",
+      "desc": "中文整句翻译：主译 + 多条备选译法；从翻译里抽出内容词列成可点蓝字列表（过滤停用词），点任意词跳查完整词典。",
+      "sha256": "f79a18dbe15ecac93c12d4fd6f136db84f084dde2bcd47fa1e95304e126a5bc2",
+      "url": "https://github.com/kindtree/bob-plugin-youdaodict/releases/download/v1.6.0/youdaodict.bobplugin",
+      "minBobVersion": "1.8.0"
+    },
+    {
       "version": "1.5.0",
       "desc": "中文短词（1-4 汉字）查英文候选：按词性分组渲染可点击的英文候选词，附拼音与中文补充释义。",
       "sha256": "cce73fba7040d894e2030db6d2b75b5c8db83cd84b479fa460ec09a04389ffa6",

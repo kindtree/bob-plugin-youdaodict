@@ -8,6 +8,7 @@ const good = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-go
 const notfound = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-notfound.json"), "utf8"));
 const typo = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-typo.json"), "utf8"));
 const ce = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-ce-yingxiang.json"), "utf8"));
+const ceSent = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/youdao-ce-sentence.json"), "utf8"));
 
 test("isSingleWord: 单词为真，含空格/中文/空串为假", () => {
   assert.equal(mod.isSingleWord("good"), true);
@@ -267,6 +268,49 @@ test("buildCeDictResult: 中文输入返回候选 relatedWordParts + 拼音 addi
 test("buildCeDictResult: 无 ce.word 返回 null", () => {
   assert.equal(mod.buildCeDictResult({}, "x"), null);
   assert.equal(mod.buildCeDictResult({ ce: { word: [] } }, "x"), null);
+});
+
+test("containsChinese: 含汉字为真", () => {
+  assert.equal(mod.containsChinese("今天天气不错"), true);
+  assert.equal(mod.containsChinese("hello 世界"), true);
+  assert.equal(mod.containsChinese("good"), false);
+  assert.equal(mod.containsChinese(""), false);
+});
+
+test("parseCeSentenceTr: 重组英文 + 抽词", () => {
+  const tr = ceSent.ce.word[0].trs[0];
+  const r = mod.parseCeSentenceTr(tr);
+  assert.equal(r.english, "The weather is good today.");
+  assert.deepEqual(r.words, ["The", "weather", "is", "good", "today"]);
+});
+
+test("buildCeSentenceResult: 主译进 parts、其他译法进 additions、词列表进 relatedWordParts(去停用词去重)", () => {
+  const d = mod.buildCeSentenceResult(ceSent, "今天天气不错");
+  assert.equal(d.word, "今天天气不错");
+  // 主译
+  assert.equal(d.parts.length, 1);
+  assert.match(d.parts[0].means[0], /weather/);
+  // 其他译法
+  const alt = d.additions.filter(a => a.name === "其他译法");
+  assert.ok(alt.length >= 1, "应至少有 1 条其他译法");
+  assert.match(alt[0].value, /fine|nice/);
+  // 可点词列表：含 weather/good/today，去掉 the/is 等停用词
+  const words = d.relatedWordParts[0].words.map(w => w.word.toLowerCase());
+  assert.ok(words.includes("weather"));
+  assert.ok(words.includes("today"));
+  assert.ok(!words.includes("the"), "the 应被过滤");
+  assert.ok(!words.includes("is"), "is 应被过滤");
+});
+
+test("buildCeSentenceResult: word 超长会截断", () => {
+  const longInput = "今天".repeat(20); // 40 字
+  const d = mod.buildCeSentenceResult(ceSent, longInput);
+  assert.ok(d.word.length <= 31, "word 应被截断至 30 字内 + 省略号");
+  assert.ok(d.word.endsWith("…"));
+});
+
+test("buildCeSentenceResult: 无 ce.word 返回 null", () => {
+  assert.equal(mod.buildCeSentenceResult({}, "x"), null);
 });
 
 test("buildDictResult: 命中词典返回完整 toDict", () => {
