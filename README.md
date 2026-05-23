@@ -1,50 +1,110 @@
-# Bob 有道词典(单词)插件
+# 有道词典(单词) Bob 翻译插件
 
-[Bob](https://bobtranslate.com/) 翻译插件。输入**单个英文单词**时返回:释义、双语例句、英/美发音(可点喇叭出声);划句子时友好回退。用于替代金山词霸"查不到单词"的问题。
+[Bob](https://bobtranslate.com/) 的有道词典翻译插件。划词查**单个英文单词**时返回完整词典:中文释义、英美双发音、双语例句、近义词、同根词、词组,以及柯林斯英释、词频星级和考试标签。整句输入会友好回退。无需任何 key,直接用有道公开接口。
 
-## 功能
+## 解决什么问题
 
-- 中文释义(按词性分组)
-- 英/美音标 + 真人发音(有道 dictvoice 音源,无需 API key)
-- 双语例句(柯林斯简洁例句优先,过长例句自动让位短句)
-- 柯林斯英文释义(可在插件设置中关闭)
-- 近义词(按词性)、常用词组、词频星级(柯林斯)
-- 同根衍生词(按词性分组)、考试标签(CET4/CET6/考研等)
-- 词形变化(复数/比较级/最高级等)
-- 输入净化:划词带的首尾标点/引号(如 `good.`、`"good"`)自动去除
-- 结果缓存(7 天)+ 网络失败自动重试一次
-- 发音口音偏好、例句数量可在插件设置中调整
+Bob 自带的金山词霸经常提示"没有查到此单词",尤其是六级以上、考研、专业领域词。本插件换用有道作为数据源,词库覆盖明显更全;同时把发音、例句、英释、相关词、考试标签等都一次性渲染出来,看一次词等于查了好几本词典。
 
-## 数据源
+## 突出功能
 
-- 释义/例句/词形/近义/词组:有道 `dict.youdao.com/jsonapi`
-- 发音:有道 `dict.youdao.com/dictvoice`
+数据足够多:
 
-均为公开接口,无需 key。
+- 中文释义按词性分组
+- 柯林斯英文释义(可在设置中关闭)
+- 双语例句(柯林斯简洁例句优先,过长例句自动让位短句,解决冷门词例句过长的问题)
+- 同义词按词性分组
+- 常用词组,如 `good at 善于`
+- 同根衍生词,按词性分组渲染到 Bob 的 `relatedWordParts`
+- 词形变化(复数 / 比较级 / 最高级 等)
+- 词频星级(柯林斯五星制,一眼看出常用度)
+- 考试标签(CET4 / CET6 / 考研 等)
+
+发音体验好:
+
+- 英美双发音都可点喇叭出声(有道 dictvoice 真人音源,无需 key)
+- 设置里可选美式优先或英式优先(影响默认朗读项)
+
+划词更宽容:
+
+- 划词常把句号、引号一起选中,本插件会自动去除前后非字母字符。`good.`、`"good"`、`(well-being)` 都能直接查到
+
+工程上更扎实:
+
+- 本地缓存 7 天,同词秒出
+- 网络失败自动重试一次,接口偶发抖动也能撑过去
+- 缓存层全程 try/catch 兜底,任何文件层异常都退回联网,不影响查词
+- 解析逻辑全部由 `node --test` 用真实抓取的有道响应做夹具覆盖,44 个单测
+
+不上传、零依赖:
+
+- 所有请求直接打有道公开接口,本插件不上传任何东西
+- 不需要 API key、不需要登录、不需要 npm 包
+
+## 安装
+
+下载并安装:
+
+1. 到 [Releases](https://github.com/kindtree/bob-plugin-youdaodict/releases/latest) 下载最新的 `youdaodict.bobplugin`
+2. 双击安装,Bob 偏好设置 → 服务 中启用"有道词典(单词)"
+3. 把它拖到翻译服务列表靠前的位置,这样划词会优先用它
+
+或从源码自行打包:
+
+```bash
+git clone https://github.com/kindtree/bob-plugin-youdaodict.git
+cd bob-plugin-youdaodict
+bash build.sh   # 产出 youdaodict.bobplugin,双击即可安装
+```
+
+## 配置
+
+插件设置里有三个开关:
+
+| 设置 | 选项 | 默认 |
+|---|---|---|
+| 发音口音优先 | 美式 / 英式 | 美式 |
+| 例句数量 | 1 / 2 / 3 条 | 2 条 |
+| 柯林斯英文释义 | 显示 / 隐藏 | 显示 |
+
+## 路线图
+
+下一步打算做的事:
+
+- 音频本地缓存(目前每次点喇叭都会拉一次音频,频繁点同一个词时偏吃流量)
+- 多音源兜底,dictvoice 失败时切到备用 TTS
+- 可选的有道官方 API 路线(填 AppID / Secret),合规且不怕被反爬限频
+- 同根词渲染样式优化
+- 自定义图标(Bob 自定义图片图标尚无官方文档,在等社区方案)
+
+## 反馈与贡献
+
+这个插件还在打磨,欢迎在 [Issues](https://github.com/kindtree/bob-plugin-youdaodict/issues) 里:
+
+- **提需求**:你想要的字段、想要的排版、想关掉的内容,都可以提
+- **报问题**:某个词查出来不对、发音不出声、配置没生效、和某个翻译服务冲突
+- **谈体验**:信息密度、配色、行距、什么放前什么放后,这些主观项也很重要
+
+直接发 PR 也欢迎。提 Issue 时附上具体单词、Bob 版本、系统版本,定位会快很多。
 
 ## 开发
 
 ```bash
-node --test tests/*.test.js   # 跑单测（零依赖，用真实抓取的夹具）
-bash build.sh                 # 打包成 youdaodict.bobplugin
+node --test tests/*.test.js   # 跑单测,零依赖,Node 20+ 自带 runner
+bash build.sh                 # 打包 .bobplugin
+bash release.sh               # 打包 + 把 sha256 写回 appcast.json
 ```
 
-`main.js` 分两层:纯函数(jsonapi -> Bob toDict,可单测)+ 薄胶水(`translate`/`$http`/`$file`)。
-缓存层(`$file`/`$data`)全程 try/catch 兜底,任何缓存异常都退回联网,不影响查词。
+代码分两层:纯函数(有道 jsonapi 响应 → Bob `toDict` 结构)+ 薄胶水(`translate` / `$http` / `$file` / `$option`)。所有纯函数都用真实抓取的有道响应做夹具单测。
 
-> 注:缓存与文件读写依赖 Bob 沙箱注入的 `$file`/`$data`,只能在 Bob 内最终验证;
-> 纯逻辑(缓存键、TTL、所有内容构建)已由单测覆盖。
+技术细节(Bob 沙箱注入的全局对象、有道字段路径表、发音 URL、TDD / 打包 / appcast 流程、新建插件起步清单)见 [DEVELOPMENT.md](./DEVELOPMENT.md)。
 
-## 安装
+## 免责声明
 
-双击 `youdaodict.bobplugin` -> Bob 偏好设置 -> 服务 中启用。
+本插件使用有道公开的词典与发音接口(`dict.youdao.com/jsonapi`、`dict.youdao.com/dictvoice`),仅供个人学习使用。这些接口为非官方公开接口,任何变更或访问限制均由有道决定。请勿用于批量抓取等高频用途。
 
-## 自动更新(可选)
+## License
 
-1. 把 `info.json` 和 `appcast.json` 里的 `USERNAME` 改成你的 GitHub 用户名。
-2. 运行 `bash release.sh`:打包并把 sha256 写回 `appcast.json`。
-3. 把 `youdaodict.bobplugin` 上传到 GitHub Release(地址需与 `appcast.json` 的 `url` 一致),推送仓库。
+[MIT](./LICENSE) © 2026 Alex Lee
 
-之后 Bob 会按 `info.json` 的 `appcast` 地址检查更新。
-
-> 图标:`info.json` 的 `icon` 目前用内置编号 `001`(Bob 内置 001~149)。自定义图片图标官方未提供文档,暂不支持。
+参考与致敬:[xingty/bob-plugin-youdao-dict-enhance](https://github.com/xingty/bob-plugin-youdao-dict-enhance)(同根衍生词、考试标签的字段路径参考了该项目)。
