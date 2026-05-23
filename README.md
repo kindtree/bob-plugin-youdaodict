@@ -1,5 +1,9 @@
 # 有道词典(单词) Bob 翻译插件
 
+[![tests](https://github.com/kindtree/bob-plugin-youdaodict/actions/workflows/test.yml/badge.svg)](https://github.com/kindtree/bob-plugin-youdaodict/actions/workflows/test.yml)
+[![release](https://img.shields.io/github/v/release/kindtree/bob-plugin-youdaodict)](https://github.com/kindtree/bob-plugin-youdaodict/releases/latest)
+[![license](https://img.shields.io/github/license/kindtree/bob-plugin-youdaodict)](./LICENSE)
+
 [Bob](https://bobtranslate.com/) 的有道词典翻译插件。划词查**单个英文单词**时返回完整词典:中文释义、英美双发音、双语例句、近义词、同根词、词组,以及柯林斯英释、词频星级和考试标签。整句输入会友好回退。无需任何 key,直接用有道公开接口。
 
 <p align="center">
@@ -106,6 +110,10 @@ bash release.sh               # 打包 + 把 sha256 写回 appcast.json
 ## 免责声明
 
 本插件使用有道公开的词典与发音接口(`dict.youdao.com/jsonapi`、`dict.youdao.com/dictvoice`),仅供个人学习使用。这些接口为非官方公开接口,任何变更或访问限制均由有道决定。请勿用于批量抓取等高频用途。
+
+## 更新日志
+
+见 [CHANGELOG.md](./CHANGELOG.md)。
 
 ## License
 
