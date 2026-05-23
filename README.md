@@ -10,6 +10,8 @@
   <img src="docs/screenshot.png" alt="查 journey 的完整词典结果（音标 + 双发音 + 词性释义 + 词形变化 + 柯林斯英释 + 双语例句）" width="420">
 </p>
 
+<sub>Original by [Alex Lee](https://github.com/kindtree) · Apache 2.0 licensed · Fork 时请保留 LICENSE 文件与本项目链接</sub>
+
 ## 解决什么问题
 
 Bob 自带的金山词霸经常提示"没有查到此单词",尤其是六级以上、考研、专业领域词。本插件换用有道作为数据源,词库覆盖明显更全;同时把发音、例句、英释、相关词、考试标签等都一次性渲染出来,看一次词等于查了好几本词典。
@@ -231,6 +233,13 @@ bash release.sh               # 打包 + 把 sha256 写回 appcast.json
 
 ## License
 
-[MIT](./LICENSE) © 2026 Alex Lee
+[Apache License 2.0](./LICENSE) © 2026 Alex Lee
+
+Fork、修改、商用都欢迎,但请保留以下两点(Apache 2.0 协议强制):
+
+1. 保留 `LICENSE` 文件 + 原作者 copyright notice(`main.js` 顶部 5 行注释)
+2. 修改过的文件需明显标注"Modified by ..."(Apache 2.0 §4.b)
+
+参考与致敬:[xingty/bob-plugin-youdao-dict-enhance](https://github.com/xingty/bob-plugin-youdao-dict-enhance)(同根衍生词、考试标签的字段路径参考了该项目)。
 
 参考与致敬:[xingty/bob-plugin-youdao-dict-enhance](https://github.com/xingty/bob-plugin-youdao-dict-enhance)(同根衍生词、考试标签的字段路径参考了该项目)。
