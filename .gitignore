@@ -1,2 +1,6 @@
 # 构建产物
 *.bobplugin
+
+# Claude Code 配置（私人指引,不进公开仓）
+CLAUDE.md
+CLAUDE.local.md
