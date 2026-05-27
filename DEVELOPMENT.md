@@ -216,11 +216,66 @@ function pluginTimeoutInterval() { return 10; }                     // 可选，
 
 > 凡涉及外部生态的事实性主张(平台 topic / 协议字段名 / API 端点 / 内置服务清单 / 文件名规则 / **第三方模型清单**),**出方案前 30 秒去 WebFetch 官方文档或 curl 实测一次**。本仓累计 5 次"凭记忆/印象出方案"踩坑:bobplugin topic 名写错 / 假设 Bob 没内置 LLM / 假设 fanyi.tran 能兜底 / 假设 phonetics.type 可塞非 us/uk 值 / **以为 DeepSeek 仍是 V3+R1 时代(实际 2026-05 官方已升 V4,chat/reasoner 沦为待废弃别名)**。每次都要回头致歉撤回,浪费来回 — 这条比"先实测"更精准的版本是:**外部生态事实必须刚性验证**。
 
+### F. v2.1.0 周期沉淀(2026-05-27,响应 #1 maxfong "改自定义模型"诉求)
+
+#### F1. options 协议刚性事实(三源互证:官方文档 + yetone/bob-plugin-openai-translator + yetone/bob-plugin-openai-polisher 真实 info.json)
+
+- **`options[].type` 完整支持清单:仅 `text` 与 `menu`**。无 button / action / validate / link / switch / checkbox / number 任何其他取值。`textConfig.type` 内部还能分 `secure` / `visible`(影响是否打码),但**不是"动作类型"**。
+- **无条件显示机制**:options 字段定义里没有 `visibleWhen` / `depend` / `showIf` / `dependsOn` / `hide`。条件显示做不到,只能 `desc` 文案兜底("仅当上方选 X 时生效")。yetone 等成熟第三方插件全部采用这个妥协方案。
+- **"测试连接"按钮做不了**:Bob 服务列表里 Google 翻译、智谱翻译等带「验证」按钮的是 **Bob 自己用 Swift 写的内置服务特权 UI**(图中带"内置"/"密钥"标签),第三方 .bobplugin 永远没有这个能力。替代方案:LLM 调用失败时把详细错误(endpoint / model / HTTP status / 上游 message)塞进结果 `additions`(本仓 `buildLlmErrorAddition`),让用户在卡片里直接看到为啥配置不通。
+
+#### F2. 本地开发"看似没生效"的两阶诊断
+
+当用户截图反馈"UI 还是旧的",别立刻怀疑 build 错了。两阶定位:
+
+1. **Bob 沙箱真实状态**:`grep -E '"version"|deepseek-v4' ~/Library/Containers/com.hezongyidev.Bob/Data/Documents/InstalledPlugin/<identifier>/info.json` — 若是新版,问题在 UI 层;若仍是旧版,看 §9.D "本地装新包后必须 bump version"。
+2. **偏好面板 UI 缓存**:Bob 偏好窗口不会热刷新已安装插件的 options 渲染。沙箱已是新版但 UI 看到旧字段 → 关闭偏好窗口再打开(或重启 Bob)。
+
+本周期内这两层 cache 叠加踩了两次,验收姿势固化下来。
+
+#### F3. 文档里给具体性能/价格数字必须标注"实测"还是"类推"
+
+本周期把"`deepseek-v4-flash` 1-2 秒响应"写进 §5,实际是从 v3 时代 `deepseek-chat` 旧 1.2s 实测值**类推**——V4 是新架构(DSA + 1M context 默认 + 双模式),性能不一定可类比。后来用户反馈"v4-flash 挺慢的"对不上文档预期。
+
+教训:文档化具体数字(延迟 / 价格 / token 速率)必须配标签 **(实测 yyyy-mm-dd)** 或 **(类推,未实测)**。第三方模型升级周期短(DeepSeek 5 个月 7 次别名滚动),旧实测数据可能已经无效。
+
+#### F4. 版本号策略:开发周期内可任意 bump,release 前回到"承诺版本号"
+
+issue #1 里对 maxfong 承诺过"v2.1.0 改自定义模型"。开发过程为了让 Bob 重新读包,bump 到 2.1.1 / 2.1.2 是 development convenience(同 version 静默不刷)。**release 前必须回退到承诺号 2.1.0**,对外只暴露一个干净版本,CHANGELOG 三段合并,git history 一个 commit。开发过程的迭代版本号不进 git 不进 release。
+
+#### F5. 对外发布完整流程(端到端)
+
+1. **统一版本号**:`info.json` 的 `version` 回到对外承诺号。
+2. **合并 CHANGELOG**:开发期内多个 patch 条目压成一个版本条目。
+3. **加 appcast.json entry**:`release.sh` 期望该版本 entry 已存在(它只回写 sha256),必须手动加 `{version, desc, sha256: "PLACEHOLDER", url, minBobVersion}`。
+4. **跑测试**:`node --test tests/*.test.js`,确保 100% 通过。
+5. **`bash release.sh`**:自动 build + 算 sha256 + 写回 appcast.json。
+6. **git commit + push**:**全程 `env -u GITHUB_TOKEN`**(细粒度 PAT 没 `repo` 权限,会推不动)。
+7. **`env -u GITHUB_TOKEN gh release create v<X.Y.Z> wordtier.bobplugin --repo <user>/<repo> --title ... --notes ...`**:notes 写关键改动 + 来源 + 兼容说明。
+8. **`env -u GITHUB_TOKEN gh issue comment <N> --body ...`**:响应原诉求 + 提"超出承诺"的额外好处 + release 链接。
+9. **Bob 客户端 24h 内通过 appcast 推送更新提示**(实测稳定);新用户去 release 页双击安装。
+
+#### F6. LLM 缓存的设计要点
+
+- **联合键**:`(text, targetLevel)` 而非仅 text。因为 prompt 个性化(`buildLlmPrompt` 在 targetLevel 非 all 时插入"学习者当前正在准备:X"段)会让同句在不同等级下产出不同结果,共用缓存会污染。本仓用 `prefix = "llm-<targetLevel>"` 写入 `$sandbox/cache/llm-<level>_<key>.json`。
+- **schema 隔离**:jsonapi 缓存与 LLM 缓存不能混(`renderJsonapi` 与 `buildLlmSentenceResult` 期望不同 data 形态),用 `cachePath(word, prefix)` 加前缀区分,前缀默认 "yd"。
+- **失败不写**:LLM 调用失败 / JSON 解析异常一律不写缓存,避免坏数据污染未来 7 天。仅在 `buildLlmSentenceResult` 成功生成 dict 后才 `cacheSet`。
+- **命中可见**:缓存命中时给 additions 加一行"缓存:命中(未走 API · 7 天 TTL)",让用户在使用中能区分"第一次调用" vs "缓存命中",出问题也能快速定位是缓存层还是 LLM 层。
+
 ## 10. 新建一个 Bob 插件的起步清单
 
+### 开发阶段
 1. 建目录 + `info.json`(填 `category`/`identifier`/`minBobVersion`)。
 2. `main.js`:`translate`/`supportLanguages`/`pluginTimeoutInterval` + 纯函数 + `module.exports` 守卫。
 3. 先用 `curl` 抓数据源真实响应存为 `tests/fixtures/*.json`,`python3` 打印结构坐实字段。
 4. 纯函数 TDD(`node --test tests/*.test.js`)。
 5. 胶水接 `$http`/`$option`,涉及 `$file`/`$data` 的全 try/catch。
 6. Node 模拟 `$http` live 冒烟 → `build.sh` 打包 → 双击装进 Bob 人工验收(发音点喇叭确认出声)。
+7. 验收"UI 没变化"时按 §9.F2 两阶诊断(沙箱真实版本 → 偏好面板 UI 缓存)。
+
+### 对外发布阶段
+8. 版本号回到对外承诺号(开发期 bump 的 patch 号合并)。
+9. CHANGELOG 多段压成一个版本条目;appcast.json 手动加版本 entry。
+10. `bash release.sh` 算 sha256 写回 appcast.json。
+11. `env -u GITHUB_TOKEN` 前缀:`git push` + `gh release create v<X.Y.Z> <name>.bobplugin` + `gh issue comment`。
+12. Bob 客户端 24h 内通过 appcast 自动推送更新提示。
