@@ -1,6 +1,6 @@
 {
   "identifier": "com.alex.bob.youdaodict",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "category": "translate",
   "name": "词阶 WordTier",
   "summary": "按你的学习级别个性化的 Bob 学英语词典 + 整句翻译插件。英文完整词典 + 中文反查 + 可选 DeepSeek 翻译并按 CET/考研/雅思/托福/GRE 等级分组可点词",
@@ -62,12 +62,35 @@
     {
       "identifier": "deepseekModel",
       "type": "menu",
-      "title": "DeepSeek 模型",
-      "defaultValue": "deepseek-chat",
+      "title": "模型",
+      "defaultValue": "deepseek-v4-flash",
+      "desc": "DeepSeek 官方 2026-04-24 升级 V4。旧别名 deepseek-chat / deepseek-reasoner 将于 2026-07-24 15:59 UTC 完全下线（官方公告 api-docs.deepseek.com/news/news260424），之后调用立即失败，请尽早切换到 v4-flash / v4-pro。选「自定义」可填任意 OpenAI 兼容模型名（见下方「自定义模型 ID」）。",
       "menuValues": [
-        { "title": "deepseek-chat (V3，推荐)", "value": "deepseek-chat" },
-        { "title": "deepseek-reasoner (R1，推理强但慢)", "value": "deepseek-reasoner" }
+        { "title": "deepseek-v4-flash（推荐，1M 上下文）", "value": "deepseek-v4-flash" },
+        { "title": "deepseek-v4-pro（更强，价格约 3 倍）", "value": "deepseek-v4-pro" },
+        { "title": "deepseek-reasoner（思考模式，2026-07-24 下线）", "value": "deepseek-reasoner" },
+        { "title": "自定义（见下方）", "value": "__custom__" }
       ]
+    },
+    {
+      "identifier": "deepseekModelCustom",
+      "type": "text",
+      "title": "自定义模型 ID",
+      "desc": "仅当上方「模型」选「自定义」时生效。⚠️ DeepSeek 官方不接受 deepseek-v3 / deepseek-v3.2 / deepseek-r1 这类 V3/R1 字面值（从未作为公开 model id 暴露），DeepSeek 端只能填 deepseek-v4-flash / deepseek-v4-pro。第三方 OpenAI 兼容服务（搭配下方 BaseURL）可填对方文档列出的任意名，如 qwen2.5-72b-instruct、glm-4.5。",
+      "textConfig": {
+        "type": "visible",
+        "placeholderText": "deepseek-v4-flash"
+      }
+    },
+    {
+      "identifier": "deepseekBaseUrl",
+      "type": "text",
+      "title": "API Base URL",
+      "desc": "留空走 https://api.deepseek.com。可改为任意 OpenAI 兼容端点，如 https://api.siliconflow.cn/v1、https://ark.cn-beijing.volces.com/api/v3。填 base 即可，无需带 /chat/completions。",
+      "textConfig": {
+        "type": "visible",
+        "placeholderText": "https://api.deepseek.com"
+      }
     },
     {
       "identifier": "targetLevel",

@@ -2,6 +2,28 @@
 
 本项目版本号遵循 [SemVer](https://semver.org/lang/zh-CN/);格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [2.1.0] - 2026-05-27
+
+### 新增
+- **自定义模型 ID**:DeepSeek 模型下拉新增「自定义」选项 + 独立「自定义模型 ID」文本框,出新模型不用等插件升级。响应 #1 社区反馈(maxfong)。
+- **自定义 API Base URL**:支持指向任意 OpenAI 兼容服务(SiliconFlow / 火山方舟 / OpenRouter / 自托管代理 等)。智能拼接 `/chat/completions`,用户填 base 即可,无需带完整路径。
+- **LLM 错误透明化**:LLM 调用失败时除了走 jsonapi 兜底,把详细错误信息(endpoint / model / HTTP status / 上游 message)塞进卡片 `additions` 里显示。配置错了立刻能看到,而不是静默退化。
+- **LLM 路径加缓存**:补上 v1.7 CHANGELOG 里说要做但一直没做的 LLM 缓存。中文整句 LLM 翻译结果按 `(text, targetLevel)` 联合键写 `$sandbox/cache/llm-<level>_<key>.json`,7 天 TTL,同句二次划词直接命中、不走 API、不收费。命中时卡片 `additions` 显示「缓存:命中(未走 API · 7 天 TTL)」。LLM 仅在调用**成功**时才写缓存,失败/解析异常都不写,避免坏数据污染。
+
+### 变更
+- **模型清单升级到 V4**:DeepSeek 官方 2026-04-24 升级 V4,新增 `deepseek-v4-flash` / `deepseek-v4-pro`。旧 `deepseek-chat` / `deepseek-reasoner` 沦为 v4-flash 非思考 / 思考模式别名,**官方公告(api-docs.deepseek.com/news/news260424) 将于 2026-07-24 15:59 UTC 完全下线**,之后调用立即失败。menu 改为:`deepseek-v4-flash`(默认,1M 上下文,推荐) / `deepseek-v4-pro`(更强,~3× 价) / `deepseek-reasoner`(思考模式,标硬下线日期) / 自定义。
+- 默认 `defaultValue` 从 `deepseek-chat` 改为 `deepseek-v4-flash`。
+- 自定义模型 ID 字段 desc 明确标注:**DeepSeek 官方不接受 `deepseek-v3` / `deepseek-v3.2` 等 V3 字面值**——chat/reasoner 别名一路滚动指向 V3 → V3-0324 → V3.1 → V3.1-Terminus → V3.2-Exp → V3.2 → V4-flash,但具体版本号字面值从未作为公开 model id 暴露,只能填 v4-flash / v4-pro;第三方 OpenAI 兼容服务可填对方文档列出的任意名(qwen2.5-72b-instruct / glm-4.5 等)。
+- 抽 `cachePath(word, prefix?)` 纯函数,jsonapi (`yd_`) 和 LLM (`llm-<level>_`) 两套 schema 文件名隔离,互不冲突。
+
+### 不变(兼容)
+- `identifier`(`com.alex.bob.youdaodict`)不变,**老用户升级无感**——已配置的 deepseek-chat 字符串值兼容期内(至 2026-07-24)仍可调通(测试已覆盖透传);7-24 之后插件的 LLM 失败 additions 调试行会清晰告知用户原因(就是这个机制存在的意义)。设置 / 缓存 / API key 全部保留。
+- 默认行为:不填 BaseURL 仍打 deepseek 官方;不选自定义仍走 menu 值;核心查词路径与 v2.0 一致。
+- 老用户沙箱里的 jsonapi 缓存文件路径从 `<key>.json` 变为 `yd_<key>.json` → 升级当天失效一次,次日命中率自动恢复。属于一次性代价,jsonapi 单次往返成本低、可接受。
+
+### TODO(提醒后续版本)
+- 2026-07-01 前发 v2.2.0,把 `deepseek-reasoner` 从 menu 移除(下线后选了必报错)。
+
 ## [2.0.0] - 2026-05-23
 
 ### 变更

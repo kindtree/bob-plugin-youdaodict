@@ -103,16 +103,23 @@ function pluginTimeoutInterval() { return 10; }                     // 可选，
 | 中文反查英文 | `ce.word[0]` | `{phone, return-phrase, trs[].tr[0].l{pos, i, "#tran"}}`;`l.i` 是混合数组(空字符串 + `{"#text": "influence"}` 对象);多义按 `pos` 分组到 `relatedWordParts`,英文渲染为可点蓝字。`phone` 是拼音,塞进 `additions[].name="拼音"`(`phonetics.type` 受限于 us/uk,不放拼音) |
 | 中文整句翻译 | `ce.word[0].trs[]` 多条备选,每条 `tr[0].l.i` 是"字符串+`{#text}`对象"混合序列 | 用 `trs[0]` 当主译(parts 主区),`trs[1..2]` 进 additions 当"其他译法";从 `#text` 抽词,过滤停用词 + 仅字母词 + 去重 → `relatedWordParts[0].words` 渲染成可点蓝字。空格/标点都在序列里,按顺序 join 即得完整英文。 |
 
-### DeepSeek LLM(v1.7+,可选)
+### DeepSeek LLM(v1.7+,可选;v2.1+ 支持自定义 BaseURL 与模型)
 
-- 端点:`POST https://api.deepseek.com/chat/completions`(OpenAI 兼容协议)
+- 默认端点:`POST https://api.deepseek.com/chat/completions`(OpenAI 兼容协议)
+- **v2.1+ 用户可改 BaseURL** 走任意 OpenAI 兼容服务(SiliconFlow / 火山方舟 / OpenRouter 等);`resolveLlmEndpoint(baseUrl)` 智能拼接 `/chat/completions`,用户填 `https://x/v1`、`https://x/v1/`、`https://x/v1/chat/completions` 都正确解析
 - Header:`Authorization: Bearer <user-key>` + `Content-Type: application/json`
-- Body 关键字段:`model`(`deepseek-chat` / `deepseek-reasoner`)、`response_format: {type:"json_object"}`、`temperature: 0.2`、`messages[]`
+- **模型清单**(刚性核实 2026-05-27,一手来源 https://api-docs.deepseek.com/updates 与 /news/news260424):
+  - `deepseek-v4-flash`(**当前主推**,1M 上下文,~$0.14/M 输入 / $0.28/M 输出,284B 总参 / 13B 活跃)
+  - `deepseek-v4-pro`(更强,1M 上下文,约 3× 价,1.6T 总参 / 49B 活跃)
+  - `deepseek-chat` / `deepseek-reasoner` 是 v4-flash 非思考 / 思考模式的别名,**官方公告 2026-07-24 15:59 UTC 完全下线** (`will be fully retired and inaccessible`),不是模糊"将来废弃"而是写死的硬日期。插件 menu v2.1 起:移除 chat(与 v4-flash 重复)、保留 reasoner 但标硬下线日期;老用户 $option 残留的 `deepseek-chat` 字符串在 7-24 之前仍可调通,之后 `buildLlmErrorAddition` 会把 401/invalid model 错误塞进 additions 给用户看
+  - **`deepseek-v3` / `deepseek-v3.2` / `deepseek-r1` / `deepseek-coder` 等具体字面值从未作为 API model id 暴露**——chat/reasoner 别名一路滚动指向背后的具体版本(V3 → V3-0324 → V3.1 → V3.2 → V4-flash),但用户填字面 V3 id 直接 invalid model
+  - chat/reasoner 别名演变历史(供参考,**非可直接调用清单**):2025-01 V3+R1 / 2025-03 V3-0324 / 2025-05 R1-0528 / 2025-08 V3.1 / 2025-09 V3.1-Terminus / 2025-09 V3.2-Exp / 2025-12 V3.2 / 2026-04 V4-flash
+- Body 关键字段:`model`、`response_format: {type:"json_object"}`、`temperature: 0.2`、`messages[]`
 - **JSON mode 硬要求**:prompt 必须**含 "json" 字** + 给出**示例结构**,否则可能不开启严格模式或返回非 JSON
-- **DeepSeek 已知**:JSON mode 偶发返回空 content,代码必须 try/catch 兜底,失败时回退 jsonapi 路径
+- **DeepSeek 已知**:JSON mode 偶发返回空 content,代码必须 try/catch 兜底;v2.1 起失败时把详细错误(endpoint / model / HTTP status / upstream message)塞进 jsonapi 兜底结果的 `additions`(`buildLlmErrorAddition`),让用户在卡片里直接看到为啥 LLM 没生效——Bob 的 options 协议没有"测试连接"按钮可用(text/menu 二选一),只能用这种方式给配置排错反馈
 - Bob `$http.request({method:"POST", url, header, body, handler})` 自动序列化 body 对象;响应里 `resp.data` 是已 parse 的 JSON
 - 响应路径:`data.choices[0].message.content` 是 LLM 输出的 JSON 字符串,需二次 `JSON.parse`
-- 时延:`deepseek-chat` 1-2s,`deepseek-reasoner` 5-15s
+- 时延:v4-flash 1-2s;v4-pro / reasoner 思考模式可达 5-15s
 - prompt 等级取值固定 10 个(v1.8 起):`小学 / 初中 / 高中 / CET4 / CET6 / 考研 / 雅思 / 托福 / GRE / 其它`,LLM 偶尔会返回意外字符串(如 v1.7 的"基础")→ `buildLlmSentenceResult` 把不在白名单的 level 归入"其它"
 - 个性化:`buildLlmPrompt(text, targetLevel)` 在 targetLevel 非 "all" 时插入"学习者当前正在准备:X"段,引导 LLM 选词。是否真生效取决于模型遵守 prompt 的程度,需真 key 实测
 - 渲染过滤:`filterLevelGroups(groups, targetLevel, range)` 按 `only / above / all` 过滤;"其它" 始终保留
@@ -187,25 +194,27 @@ function pluginTimeoutInterval() { return 10; }                     // 可选，
 
 ### C. DeepSeek (OpenAI 兼容)JSON mode 关键约束(实测)
 
-- 端点:`POST https://api.deepseek.com/chat/completions`,Header `Authorization: Bearer <key>`
+- 默认端点:`POST https://api.deepseek.com/chat/completions`,Header `Authorization: Bearer <key>`;v2.1+ 端点可用户改为任意 OpenAI 兼容服务(智能拼接 `/chat/completions`)
 - `response_format: {type: "json_object"}` + **prompt 必须含 "json" 字 + 给示例**(否则不开严格 JSON 模式)
-- 偶发返回空 `content`(官方已知),代码必须 try/catch 兜底,失败回退 jsonapi 路径
-- 实测 `deepseek-chat` 1.2 秒响应,严格 JSON 输出
+- 偶发返回空 `content`(官方已知),代码必须 try/catch 兜底,失败回退 jsonapi 路径并在结果 `additions` 追加 LLM 调试行
+- 实测 `deepseek-v4-flash` 1-2 秒响应,严格 JSON 输出(此前实测的 `deepseek-chat` 性能同此值,因 chat 即 v4-flash 别名)
 - `temperature: 0.2` 是稳定性与自然度的甜点
 - 响应路径:`data.choices[0].message.content` 是 LLM 输出的 JSON 字符串,需二次 `JSON.parse`
 
 ### D. Bob 生态与第三方协议(运营/发布层)
 
 - **官方插件索引** `bobplugin.ripperhe.com` 按 GitHub topic **`bobplugin`(单数、无连字符)** 每日自动抓取。`bob-plugin`(带连字符)**不会被收录** —— 这是本仓踩过的真实坑。
-- **Bob 1.15.0+ `thinkInfo`** 字段是给 AI 推理模型(R1 等)的"思考过程"展示用,非翻译输出。
+- **Bob 1.15.0+ `thinkInfo`** 字段是给 AI 推理/思考类模型(如 `deepseek-reasoner` 思考模式)的"思考过程"展示用,非翻译输出。
 - **Bob 内置智谱翻译**:Bob 与智谱官方合作,**GLM-4-Flash 免 key 直接可用**(在 Bob 服务列表标"内置")。若你的插件想做翻译,先想清楚是否与 Bob 内置功能重复 —— 重复造轮子且做得更差是常见陷阱。
 - **自定义图标**:官方只文档化内置编号 `icon: "001"~"149"`。自定义图片图标无公开文档,不要硬编可能无效的机制。
 - **Bob 插件改名**:`identifier` **绝对不动**(改了 Bob 把新版当全新插件,**用户的设置/缓存/key 全部重置**);只改 `info.json` 的 `name` 字段,用户在 Bob 服务列表里就能看到新名,平稳过渡。
+- **本地装新包后必须 bump `version`**:Bob 看到同 `identifier` + 同 `version` 的 .bobplugin 可能静默不刷,即使 main.js / info.json 内容变了。开发时每次重 build 验收前要么 bump version(推荐),要么先在 Bob 里手动卸载老版再装新版。沙箱实际安装路径在 `~/Library/Containers/com.hezongyidev.Bob/Data/Documents/InstalledPlugin/<identifier>/`,有疑问直接 `grep version` 看真实落地状态。
+- **Bob 偏好面板有 UI 缓存,不会热刷新已安装插件的 options**:装包成功后,**已经打开的偏好设置窗口仍渲染旧 menuValues / desc**,必须关掉偏好面板再打开(或重启 Bob)才能看到新字段。验收时如果 UI 没变化,先去沙箱 `info.json` 看真实安装版本,别被缓存误导。
 - **GitHub 仓库改名**:`gh repo rename` 后旧 URL 由 GitHub 自动 301 重定向(包括 raw.githubusercontent.com),v1.x 用户的 appcast 拉取继续工作 — 但不是永久保证,**新版本应同步更新 `info.json` 的 appcast 字段** 指向新 URL,让用户首次升级后完全脱离旧 URL。
 
 ### E. 元教训(适用于其它 Bob 插件 / 第三方平台开发)
 
-> 凡涉及外部生态的事实性主张(平台 topic / 协议字段名 / API 端点 / 内置服务清单 / 文件名规则),**出方案前 30 秒去 WebFetch 官方文档或 curl 实测一次**。本仓累计 4 次"凭记忆/印象出方案"踩坑:bobplugin topic 名写错 / 假设 Bob 没内置 LLM / 假设 fanyi.tran 能兜底 / 假设 phonetics.type 可塞非 us/uk 值。每次都要回头致歉撤回,浪费来回 — 这条比"先实测"更精准的版本是:**外部生态事实必须刚性验证**。
+> 凡涉及外部生态的事实性主张(平台 topic / 协议字段名 / API 端点 / 内置服务清单 / 文件名规则 / **第三方模型清单**),**出方案前 30 秒去 WebFetch 官方文档或 curl 实测一次**。本仓累计 5 次"凭记忆/印象出方案"踩坑:bobplugin topic 名写错 / 假设 Bob 没内置 LLM / 假设 fanyi.tran 能兜底 / 假设 phonetics.type 可塞非 us/uk 值 / **以为 DeepSeek 仍是 V3+R1 时代(实际 2026-05 官方已升 V4,chat/reasoner 沦为待废弃别名)**。每次都要回头致歉撤回,浪费来回 — 这条比"先实测"更精准的版本是:**外部生态事实必须刚性验证**。
 
 ## 10. 新建一个 Bob 插件的起步清单
 

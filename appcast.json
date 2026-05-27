@@ -2,6 +2,13 @@
   "identifier": "com.alex.bob.youdaodict",
   "versions": [
     {
+      "version": "2.1.0",
+      "desc": "DeepSeek 自定义模型 ID + 自定义 API Base URL（接 SiliconFlow / 火山 / OpenRouter 等 OpenAI 兼容服务）；模型清单升级 V4（旧 chat/reasoner 别名 2026-07-24 下线）；LLM 路径加 7 天缓存（同句二次划词不再调 API、不收费）；LLM 失败时把 endpoint/model/HTTP status/上游错误塞进卡片让用户立刻看到。老用户升级无感。",
+      "sha256": "dcd0008c6354c652a73ea996f94bfafcbbd8d7ca6e0472bd9c0d17d25c197a48",
+      "url": "https://github.com/kindtree/bob-plugin-wordtier/releases/download/v2.1.0/wordtier.bobplugin",
+      "minBobVersion": "1.8.0"
+    },
+    {
       "version": "2.0.0",
       "desc": "GitHub 仓库改名 bob-plugin-youdaodict -> bob-plugin-wordtier；.bobplugin 产物文件名改名 youdaodict.bobplugin -> wordtier.bobplugin。Bob identifier 不变，现有用户升级无感（设置/缓存/DeepSeek key 全部保留）。",
       "sha256": "db2cdc440917a8ea8a79d38ee0502d04cad95c5a532a2565940f84c45ed47e1b",

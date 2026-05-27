@@ -447,24 +447,32 @@ function buildLlmSentenceResult(llm, text, opts) {
   };
 }
 
-// 调用 DeepSeek chat completions（JSON mode）。失败/解析失败时回调带 error。
-var DEEPSEEK_ENDPOINT = "https://api.deepseek.com/chat/completions";
-
+// 调用 DeepSeek（或任意 OpenAI 兼容端点）chat completions（JSON mode）。
+// 失败时回调 error 带 endpoint/model/status/upstream message，便于用户排查。
 function callDeepseek(opts, text, onDone) {
+  var endpoint = (opts && opts.llmEndpoint) || "https://api.deepseek.com/chat/completions";
+  var model = (opts && opts.llmModel) || "deepseek-v4-flash";
+  var ctx = { endpoint: endpoint, model: model };
+  var fail = function (message, status, upstream) {
+    onDone({ error: {
+      message: message,
+      endpoint: endpoint, model: model,
+      status: status, upstream: upstream
+    }});
+  };
   if (typeof $http === "undefined" || !$http.request) {
-    onDone({ error: { message: "$http.request 不可用" } });
-    return;
+    fail("$http.request 不可用"); return;
   }
   $http.request({
     method: "POST",
-    url: DEEPSEEK_ENDPOINT,
+    url: endpoint,
     timeout: 30,
     header: {
       "Content-Type": "application/json",
       "Authorization": "Bearer " + (opts && opts.llmKey)
     },
     body: {
-      model: (opts && opts.llmModel) || "deepseek-chat",
+      model: model,
       response_format: { type: "json_object" },
       temperature: 0.2,
       messages: [
@@ -473,17 +481,34 @@ function callDeepseek(opts, text, onDone) {
       ]
     },
     handler: function (resp) {
-      if (resp.error) { onDone({ error: resp.error }); return; }
+      var status = resp && resp.response && resp.response.statusCode;
+      if (resp.error) { fail(resp.error.message || "网络错误", status, resp.error); return; }
       var data = resp.data;
-      if (typeof data === "string") { try { data = JSON.parse(data); } catch (e) { onDone({ error: { message: "响应不是合法 JSON" } }); return; } }
-      if (data && data.error) { onDone({ error: data.error }); return; }
+      if (typeof data === "string") { try { data = JSON.parse(data); } catch (e) { fail("响应不是合法 JSON", status, data); return; } }
+      if (data && data.error) { fail(data.error.message || "上游返回错误", status, data.error); return; }
       var content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-      if (!content) { onDone({ error: { message: "LLM 返回为空(DeepSeek 已知偶发)" } }); return; }
+      if (!content) { fail("LLM 返回为空(DeepSeek 已知偶发)", status); return; }
       var parsed = parseLlmResponse(content);
-      if (!parsed) { onDone({ error: { message: "LLM 返回非预期 JSON 结构" } }); return; }
-      onDone({ data: parsed });
+      if (!parsed) { fail("LLM 返回非预期 JSON 结构", status, content.slice(0, 200)); return; }
+      onDone({ data: parsed, ctx: ctx });
     }
   });
+}
+
+// 把 LLM 错误对象格式化成给用户看的 additions 行（追加到 jsonapi 兜底结果上）。
+function buildLlmErrorAddition(err) {
+  if (!err) return null;
+  var parts = [];
+  if (err.status) parts.push("HTTP " + err.status);
+  if (err.model) parts.push("model=" + err.model);
+  if (err.endpoint) parts.push(err.endpoint);
+  var meta = parts.length ? " [" + parts.join(" · ") + "]" : "";
+  var upstream = "";
+  if (err.upstream) {
+    if (typeof err.upstream === "string") upstream = " · " + err.upstream.slice(0, 200);
+    else if (err.upstream.message) upstream = " · " + String(err.upstream.message).slice(0, 200);
+  }
+  return { name: "LLM 调试", value: (err.message || "未知错误") + meta + upstream };
 }
 
 // 拼错词候选 -> 一个 toDict 风格的对象（无 phonetics，parts 给提示，additions 列候选）。
@@ -559,6 +584,23 @@ function buildDictResult(data, word, opts) {
 
 // ---- Bob 运行时入口 ----
 
+// menu 选「自定义」(`__custom__`) 且文本框非空时走 custom；否则走 menu；缺省 deepseek-v4-flash。
+function resolveLlmModel(menuValue, customValue) {
+  var custom = typeof customValue === "string" ? customValue.trim() : "";
+  if (menuValue === "__custom__") return custom || "deepseek-v4-flash";
+  return menuValue || "deepseek-v4-flash";
+}
+
+// 智能拼接 chat completions 端点。base 留空走 deepseek 官方；
+// 用户填 https://x.com / https://x.com/ / https://x.com/v1 / https://x.com/v1/chat/completions 都正确解析。
+function resolveLlmEndpoint(customBaseUrl) {
+  var raw = typeof customBaseUrl === "string" ? customBaseUrl.trim() : "";
+  if (!raw) return "https://api.deepseek.com/chat/completions";
+  var base = raw.replace(/\/+$/, "");
+  if (/\/chat\/completions$/.test(base)) return base;
+  return base + "/chat/completions";
+}
+
 // 从 Bob 注入的 $option 读用户设置（menu 值是字符串）；不存在时用默认值。
 function readOptions() {
   var o = (typeof $option !== "undefined" && $option) || {};
@@ -568,7 +610,8 @@ function readOptions() {
     showCollins: o.showCollins !== "off",
     llmProvider: o.llmProvider || "off",
     llmKey: o.deepseekApiKey || "",
-    llmModel: o.deepseekModel || "deepseek-chat",
+    llmModel: resolveLlmModel(o.deepseekModel, o.deepseekModelCustom),
+    llmEndpoint: resolveLlmEndpoint(o.deepseekBaseUrl),
     targetLevel: o.targetLevel || "all",
     levelRange: o.levelRange || "above"
   };
@@ -577,11 +620,16 @@ function readOptions() {
 var CACHE_DIR = "$sandbox/cache";
 var CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 天
 
-// 读缓存：命中且未过期返回已解析的 jsonapi data，否则 null。全程 try/catch，任何异常都当未命中。
-function cacheGet(word) {
+// 缓存文件路径:`<dir>/<prefix>_<key>.json`。jsonapi 默认 prefix "yd",LLM 用 "llm",两套 schema 不能混。
+function cachePath(word, prefix) {
+  return CACHE_DIR + "/" + (prefix || "yd") + "_" + cacheKey(word) + ".json";
+}
+
+// 读缓存：命中且未过期返回 entry.data，否则 null。全程 try/catch，任何异常都当未命中。
+function cacheGet(word, prefix) {
   try {
     if (typeof $file === "undefined") return null;
-    var path = CACHE_DIR + "/" + cacheKey(word) + ".json";
+    var path = cachePath(word, prefix);
     if (!$file.exists(path)) return null;
     var raw = $file.read(path);
     var str = raw && raw.toUTF8 ? raw.toUTF8() : null;
@@ -592,12 +640,12 @@ function cacheGet(word) {
 }
 
 // 写缓存：失败静默忽略，绝不影响查词。
-function cacheSet(word, data) {
+function cacheSet(word, data, prefix) {
   try {
     if (typeof $file === "undefined" || typeof $data === "undefined") return;
     $file.mkdir(CACHE_DIR);
     var entry = JSON.stringify({ ts: Date.now(), data: data });
-    $file.write({ data: $data.fromUTF8(entry), path: CACHE_DIR + "/" + cacheKey(word) + ".json" });
+    $file.write({ data: $data.fromUTF8(entry), path: cachePath(word, prefix) });
   } catch (e) { /* ignore */ }
 }
 
@@ -636,6 +684,7 @@ function translate(query, completion) {
 
   var text = isEn ? enText : raw;
   var opts = readOptions();
+  var lastLlmError = null;
 
   var renderJsonapi = function (data) {
     if (isZhShort) {
@@ -646,11 +695,18 @@ function translate(query, completion) {
     }
     if (isZhSent) {
       var sent = buildCeSentenceResult(data, text);
-      if (sent) { finish({ result: { from: "zh-Hans", to: "en", toDict: sent } }); return; }
+      var errAdd = buildLlmErrorAddition(lastLlmError);
+      if (sent) {
+        if (errAdd) { sent.additions = (sent.additions || []).concat([errAdd]); }
+        finish({ result: { from: "zh-Hans", to: "en", toDict: sent } });
+        return;
+      }
       var hint = (opts.llmProvider === "off")
         ? "未查询到「" + text + "」。整句翻译可以开启 Bob 内置的「智谱翻译」(免费免 key)，或在本插件设置里启用 DeepSeek。"
         : "未查询到「" + text + "」的翻译(LLM 不可用时的兜底)。";
-      finish({ result: { toParagraphs: [hint] } });
+      var paragraphs = [hint];
+      if (errAdd) paragraphs.push("LLM 调试：" + errAdd.value);
+      finish({ result: { toParagraphs: paragraphs } });
       return;
     }
     var dict = buildDictResult(data, text, opts);
@@ -680,12 +736,30 @@ function translate(query, completion) {
 
   // 中文整句 + 启用了 LLM provider + 有 key → 优先走 LLM 路径
   if (isZhSent && opts.llmProvider === "deepseek" && opts.llmKey) {
+    // 缓存键含 targetLevel,因为 prompt 个性化会让同一句在不同等级下产出不同结果
+    var llmPrefix = "llm-" + (opts.targetLevel || "all");
+    var cachedLlm = cacheGet(text, llmPrefix);
+    if (cachedLlm) {
+      var cachedDict = buildLlmSentenceResult(cachedLlm, text, opts);
+      if (cachedDict) {
+        cachedDict.additions = (cachedDict.additions || []).concat([
+          { name: "缓存", value: "命中(未走 API · 7 天 TTL)" }
+        ]);
+        finish({ result: { from: "zh-Hans", to: "en", toDict: cachedDict } });
+        return;
+      }
+    }
     callDeepseek(opts, text, function (r) {
       if (!r.error && r.data) {
         var dict = buildLlmSentenceResult(r.data, text, opts);
-        if (dict) { finish({ result: { from: "zh-Hans", to: "en", toDict: dict } }); return; }
+        if (dict) {
+          cacheSet(text, r.data, llmPrefix);
+          finish({ result: { from: "zh-Hans", to: "en", toDict: dict } });
+          return;
+        }
       }
-      // LLM 失败 → 兜底走 jsonapi（不让用户因 LLM 抖动而完全无结果）
+      // LLM 失败 → 兜底走 jsonapi 但把详细错误塞到 additions 让用户看到为啥没走 LLM
+      lastLlmError = r && r.error;
       runJsonapi();
     });
     return;
@@ -729,6 +803,10 @@ if (typeof module !== "undefined" && module.exports) {
     orderByAccent: orderByAccent,
     buildDictResult: buildDictResult,
     readOptions: readOptions,
+    cachePath: cachePath,
+    resolveLlmModel: resolveLlmModel,
+    resolveLlmEndpoint: resolveLlmEndpoint,
+    buildLlmErrorAddition: buildLlmErrorAddition,
     translate: translate,
     supportLanguages: supportLanguages,
     pluginTimeoutInterval: pluginTimeoutInterval

@@ -135,7 +135,9 @@ bash build.sh   # 产出 wordtier.bobplugin,双击即可安装
 | 柯林斯英文释义 | 显示 / 隐藏 | 显示 |
 | 整句翻译服务 | 关闭 / DeepSeek | 关闭 |
 | DeepSeek API Key | (secure 文本) | 空 |
-| DeepSeek 模型 | deepseek-chat / deepseek-reasoner | deepseek-chat |
+| 模型 | deepseek-v4-flash / deepseek-v4-pro / deepseek-reasoner(2026-07-24 下线) / 自定义 | deepseek-v4-flash |
+| 自定义模型 ID | 选「自定义」时生效。DeepSeek 端只能填 v4-flash/v4-pro;第三方 OpenAI 兼容服务可填 `qwen2.5-72b-instruct` 等 | 空 |
+| API Base URL | OpenAI 兼容端点；留空走 deepseek 官方 | 空 |
 | 我的目标学习级别 | 不偏好 / 小学 / 初中 / 高中 / CET4 / CET6 / 考研 / 雅思 / 托福 / GRE | 不偏好 |
 | 可点词显示范围 | 目标级别及以上 / 仅目标级别 / 全部级别 | 目标级别及以上 |
 
